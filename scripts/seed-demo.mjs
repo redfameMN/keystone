@@ -42,13 +42,13 @@ const DEMO = [
     searches: ["parking lot cars"], // should land in review, not the feed
   },
   {
-    // Curated "pinnacle" account: Keystone's own voice showcasing Brad Lancaster's
+    // Curated "pinnacle" account: Milkweed's own voice showcasing Brad Lancaster's
     // public water-harvesting work in Tucson — ABOUT him, never AS him. Photos are
     // CC BY-SA 4.0 from Wikimedia Commons (attributed in the caption).
-    username: "pinnacle_dryland", display: "Featured by Keystone",
+    username: "pinnacle_dryland", display: "Featured by Milkweed",
     region: 10, project: "boulevard", stage: "established",
     plants: ["Helianthus", "Populus"], garden: "Dunbar/Spring streetscape", zone: "9b",
-    caption: "Featured by Keystone. The granddaddy of this movement: Brad Lancaster's Tucson neighborhood routes street runoff through curb cuts into sunken basins — plant the basin, not the berm — turning desert streets into shaded food forests. Photos: Jengod et al., Wikimedia Commons, CC BY-SA 4.0.",
+    caption: "Featured by Milkweed. The granddaddy of this movement: Brad Lancaster's Tucson neighborhood routes street runoff through curb cuts into sunken basins — plant the basin, not the berm — turning desert streets into shaded food forests. Photos: Jengod et al., Wikimedia Commons, CC BY-SA 4.0.",
     files: [
       "File:Dunbar Spring traffic circle, Tucson, Arizona.jpg",
       "File:Bioswale and curb extension with cutouts (38067594726).jpg",

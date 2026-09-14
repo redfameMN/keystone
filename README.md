@@ -1,6 +1,6 @@
-# Keystone
+# Milkweed
 
-A public, gardens-only photo feed for native gardening. Browse without an account; sign in to post,
+A public, gardens-only photo feed for native gardening — live at [milkweed.garden](https://milkweed.garden). Browse without an account; sign in to post,
 like, or follow. Every post is tagged with the plants in it, flagged **keystone** when the genus is a
 top caterpillar host for the poster's ecoregion, and placed on a journey (project type × stage) so
 someone under a tarp in week 5 can find other tarps — and skip ahead to year 3.

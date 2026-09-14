@@ -15,7 +15,7 @@ import Anthropic from "npm:@anthropic-ai/sdk";
 
 const MODEL = Deno.env.get("MODERATION_MODEL") ?? "claude-opus-5";
 
-const SCREEN_PROMPT = `You are the content-safety screener for Keystone, a public garden-photo feed.
+const SCREEN_PROMPT = `You are the content-safety screener for Milkweed, a public garden-photo feed.
 On-topic photos include: gardens, plants, yards, meadows and prairies, landscapes,
 street-side and public plantings (boulevards, hellstrips, traffic circles, bioswales,
 curb-cut rain basins, community gardens), planting beds, seed trays, garden tools,

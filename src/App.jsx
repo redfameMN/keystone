@@ -5,7 +5,7 @@ import { hasSupabase, supabase } from "./lib/supabase.js";
 import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile } from "./lib/api.js";
 
 /*
-  Keystone — a public, gardens-only photo feed.
+  Milkweed — a public, gardens-only photo feed.
   Anyone can browse. An account is only needed to post, like, or follow.
 
   PLANT DATA (prototype seed). In the real build the tag vocabulary comes
@@ -250,7 +250,7 @@ export default function App() {
     <div style={shell}>
       {/* Top bar */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "linear-gradient(rgba(16,26,20,.85), rgba(16,26,20,0))" }}>
-        <div style={{ fontSize: 22, letterSpacing: -0.5 }}>Keystone</div>
+        <div style={{ fontSize: 22, letterSpacing: -0.5 }}>Milkweed</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {user?.isAdmin && (
             <button onClick={async () => { setView("mod"); try { setQueue(await fetchModerationQueue()); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
@@ -337,8 +337,8 @@ export default function App() {
               <div style={{ position: "absolute", left: 16, right: 80, bottom: 28 }}>
                 <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 4 }}>
                   <button onClick={() => openProfile(p.user)} style={{ background: "none", border: "none", padding: 0, color: "inherit", fontFamily: "inherit", fontSize: "inherit", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(241,235,221,.35)" }}>@{p.user}</button>
-                  {p.user.startsWith("demo_") && <span title="Seed content posted by the Keystone team, not a real gardener" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>demo</span>}
-                  {p.user.startsWith("pinnacle_") && <span title="Curated by the Keystone team, celebrating a pioneer of this movement" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#F1EBDD", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>★ featured</span>}
+                  {p.user.startsWith("demo_") && <span title="Seed content posted by the Milkweed team, not a real gardener" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>demo</span>}
+                  {p.user.startsWith("pinnacle_") && <span title="Curated by the Milkweed team, celebrating a pioneer of this movement" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#F1EBDD", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>★ featured</span>}
                   {" "}· {p.region} · {p.ago}
                   {p.garden && <> · <em>{p.garden}</em></>}{p.zone && <> · zone {p.zone}</>}
                 </div>
