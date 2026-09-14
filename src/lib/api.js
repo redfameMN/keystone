@@ -37,6 +37,7 @@ const toUiPost = (row) => ({
   srcs: (row.photos ?? []).map(photoUrl),
   garden: row.garden_name,
   zone: row.zone,
+  pinned: row.pinned ?? false,
 });
 
 export async function fetchPosts() {
@@ -85,7 +86,8 @@ export async function fetchMyActivity(uid) {
 export async function fetchProfile(username) {
   const [{ data: prof }, postsRes] = await Promise.all([
     supabase.from("profile").select("id, username, display_name, created_at").eq("username", username).maybeSingle(),
-    supabase.from("post_card").select().eq("username", username).order("created_at", { ascending: false }),
+    supabase.from("post_card").select().eq("username", username)
+      .order("pinned", { ascending: false }).order("created_at", { ascending: false }),
   ]);
   if (!prof) throw new Error("profile not found");
   const { count } = await supabase.from("follow").select("follower_id", { count: "exact", head: true }).eq("followed_id", prof.id);
@@ -172,6 +174,12 @@ export const processPhoto = (file) => new Promise((resolve) => {
   img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
   img.src = url;
 });
+
+export async function setPinned(postId, on) {
+  const { data, error } = await supabase.from("post").update({ pinned: on }).eq("id", postId).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("not your post");
+}
 
 export async function reportPost(postId, uid, reason, note) {
   const { error } = await supabase.from("report").insert({ post_id: postId, reporter_id: uid, reason, note: note || null });

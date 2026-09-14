@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned } from "./lib/api.js";
 
 /*
   Milkweed — a public, gardens-only photo feed.
@@ -113,6 +113,7 @@ export default function App() {
   const [queue, setQueue] = useState([]);
   const [draft, setDraft] = useState({ region: "Eastern Temperate Forests", project: null, stage: null, plants: [], caption: "", srcs: [], gardenName: "", zone: "" });
   const fileRef = useRef();
+  const scrollToRef = useRef(null); // post id to jump to when returning to the feed
 
   useEffect(() => {
     if (!hasSupabase) return;
@@ -167,6 +168,13 @@ export default function App() {
     (!filter.stage || p.stage === filter.stage) &&
     (!filter.author || p.user === filter.author)), [posts, filter]);
   const activeFilters = Object.values(filter).filter(Boolean).length;
+
+  useEffect(() => {
+    if (view === "feed" && scrollToRef.current) {
+      document.getElementById(`post-${scrollToRef.current}`)?.scrollIntoView();
+      scrollToRef.current = null;
+    }
+  }, [view, visible]);
 
   // intent survives the magic-link redirect via localStorage (see onSession)
   const requireAccount = (fn, intent) => {
@@ -336,7 +344,7 @@ export default function App() {
             </div>
           )}
           {visible.map((p) => (
-            <article key={p.id} style={{ height: "100%", position: "relative", scrollSnapAlign: "start" }}>
+            <article key={p.id} id={`post-${p.id}`} style={{ height: "100%", position: "relative", scrollSnapAlign: "start" }}>
               <PhotoStrip plants={p.plants} srcs={p.srcs ?? (p.src ? [p.src] : [])} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(rgba(16,26,20,0) 45%, rgba(16,26,20,.9))", pointerEvents: "none" }} />
 
@@ -350,10 +358,23 @@ export default function App() {
                   <div style={{ width: 34, height: 34, borderRadius: 999, background: "#E7B93B", color: "#101A14", display: "grid", placeItems: "center", fontSize: 16 }}>{p.user[0].toUpperCase()}</div>
                   <span style={{ fontSize: 12 }}>{user?.id && p.authorId === user.id ? "You" : following[p.user] ? "Following" : "Follow"}</span>
                 </button>
-                <button onClick={() => requireAccount(() => setReportFor(p.id))} style={rail} title="Report this post">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1EBDD" strokeWidth="1.8"><path d="M5 21V4h13l-2.5 4L18.5 12H5" /></svg>
-                  <span style={{ fontSize: 11, opacity: 0.8 }}>Report</span>
-                </button>
+                {user?.id && p.authorId === user.id ? (
+                  <button style={rail} title={p.pinned ? "Unpin from your profile" : "Pin to the top of your profile"}
+                    onClick={async () => {
+                      try {
+                        await setPinned(p.id, !p.pinned);
+                        setPosts((ps) => ps.map((x) => (x.id === p.id ? { ...x, pinned: !p.pinned } : x)));
+                      } catch (e) { console.error("pin", e); }
+                    }}>
+                    <span style={{ fontSize: 20, filter: p.pinned ? "none" : "grayscale(1) opacity(.75)" }}>📌</span>
+                    <span style={{ fontSize: 11, opacity: 0.8, color: p.pinned ? "#E7B93B" : "#F1EBDD" }}>{p.pinned ? "Pinned" : "Pin"}</span>
+                  </button>
+                ) : (
+                  <button onClick={() => requireAccount(() => setReportFor(p.id))} style={rail} title="Report this post">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1EBDD" strokeWidth="1.8"><path d="M5 21V4h13l-2.5 4L18.5 12H5" /></svg>
+                    <span style={{ fontSize: 11, opacity: 0.8 }}>Report</span>
+                  </button>
+                )}
               </div>
 
               {/* Caption block */}
@@ -433,11 +454,12 @@ export default function App() {
           })()}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
             {profile.posts.map((p) => (
-              <button key={p.id} onClick={() => { setFilter({ ...filter, author: profile.username }); setView("feed"); }}
+              <button key={p.id} onClick={() => { scrollToRef.current = p.id; setFilter({ ...filter, author: profile.username }); setView("feed"); }}
                 style={{ position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "none", padding: 0, cursor: "pointer", background: "#1A2A20" }}>
                 {p.srcs?.[0]
                   ? <img src={p.srcs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                   : <PlantPhoto plants={p.plants} />}
+                {p.pinned && <span style={{ position: "absolute", left: 6, top: 6, padding: "2px 7px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 10 }}>📌 Pinned</span>}
                 {p.stage && <span style={{ position: "absolute", left: 6, bottom: 6, padding: "2px 7px", borderRadius: 999, background: "rgba(16,26,20,.7)", color: "#F1EBDD", fontSize: 10 }}>{stage(p.stage)?.name}</span>}
               </button>
             ))}
