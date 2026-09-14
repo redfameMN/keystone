@@ -82,6 +82,16 @@ export async function fetchMyActivity(uid) {
   };
 }
 
+export async function fetchProfile(username) {
+  const [{ data: prof }, postsRes] = await Promise.all([
+    supabase.from("profile").select("id, username, display_name, created_at").eq("username", username).maybeSingle(),
+    supabase.from("post_card").select().eq("username", username).order("created_at", { ascending: false }),
+  ]);
+  if (!prof) throw new Error("profile not found");
+  const { count } = await supabase.from("follow").select("follower_id", { count: "exact", head: true }).eq("followed_id", prof.id);
+  return { ...prof, followers: count ?? 0, posts: (postsRes.data ?? []).map(toUiPost) };
+}
+
 export async function setLike(postId, uid, on) {
   const { error } = on
     ? await supabase.from("post_like").insert({ post_id: postId, user_id: uid })

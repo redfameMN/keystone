@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile } from "./lib/api.js";
 
 /*
   Keystone — a public, gardens-only photo feed.
@@ -77,7 +77,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [liked, setLiked] = useState({});
   const [following, setFollowing] = useState({});
-  const [filter, setFilter] = useState({ plant: null, project: null, stage: null });
+  const [filter, setFilter] = useState({ plant: null, project: null, stage: null, author: null });
+  const [profile, setProfile] = useState(null); // data for view === "profile"
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [view, setView] = useState("feed"); // feed | plants | post
   const [authOpen, setAuthOpen] = useState(false);
@@ -106,6 +107,26 @@ export default function App() {
         setFollowing(a.following);
         setAuthOpen(false);
         resumePending(u);
+        // An action started before sign-in survives the magic-link redirect here.
+        try {
+          const raw = localStorage.getItem("keystone_pending");
+          if (raw) {
+            localStorage.removeItem("keystone_pending");
+            const act = JSON.parse(raw);
+            if (act.type === "follow" && act.authorId && act.authorId !== u.id) {
+              setFollowing((f) => ({ ...f, [act.username]: true }));
+              await setFollow(act.authorId, u.id, true);
+              setNotice(`Signed in — you're now following @${act.username}.`);
+            } else if (act.type === "like" && act.id) {
+              setLiked((l) => ({ ...l, [act.id]: true }));
+              await setLike(act.id, u.id, true);
+              setPosts(await fetchPosts());
+              setNotice("Signed in — your like was saved.");
+            } else if (act.type === "post") {
+              setView("post");
+            }
+          }
+        } catch (e) { console.error("pending", e); }
       } catch (e) { console.error("auth", e); }
     };
     supabase.auth.getSession().then(({ data }) => data.session && onSession(data.session));
@@ -120,12 +141,17 @@ export default function App() {
   const visible = useMemo(() => posts.filter((p) =>
     (!filter.plant || p.plants.includes(filter.plant)) &&
     (!filter.project || p.project === filter.project) &&
-    (!filter.stage || p.stage === filter.stage)), [posts, filter]);
+    (!filter.stage || p.stage === filter.stage) &&
+    (!filter.author || p.user === filter.author)), [posts, filter]);
   const activeFilters = Object.values(filter).filter(Boolean).length;
 
-  const requireAccount = (fn) => {
+  // intent survives the magic-link redirect via localStorage (see onSession)
+  const requireAccount = (fn, intent) => {
     if (user) return fn(user);
     pendingRef.current = fn;
+    if (hasSupabase && intent) {
+      try { localStorage.setItem("keystone_pending", JSON.stringify(intent)); } catch {}
+    }
     setPending(true);
     setAuthOpen(true);
   };
@@ -141,14 +167,22 @@ export default function App() {
     setLiked((l) => ({ ...l, [id]: on }));
     setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, likes: p.likes + (on ? 1 : -1) } : p)));
     if (hasSupabase && u?.id) setLike(id, u.id, on).catch((e) => console.error("like", e));
-  });
+  }, { type: "like", id });
   const toggleFollow = (p) => requireAccount((u) => {
     if (hasSupabase && u?.id && p.authorId === u.id) return; // no self-follow
     const on = !following[p.user];
     setFollowing((f) => ({ ...f, [p.user]: on }));
     if (hasSupabase && u?.id && p.authorId) setFollow(p.authorId, u.id, on).catch((e) => console.error("follow", e));
-  });
-  const startPost = () => requireAccount(() => setView("post"));
+  }, { type: "follow", authorId: p.authorId, username: p.user });
+  const startPost = () => requireAccount(() => setView("post"), { type: "post" });
+
+  const openProfile = async (username) => {
+    try {
+      if (hasSupabase) setProfile(await fetchProfile(username));
+      else setProfile({ id: null, username, display_name: null, followers: 0, posts: posts.filter((x) => x.user === username) });
+      setView("profile");
+    } catch (e) { console.error("profile", e); }
+  };
 
   const publish = async () => {
     if (!draft.plants.length || publishing) return;
@@ -234,6 +268,7 @@ export default function App() {
           {filter.project && <button onClick={() => setFilter({ ...filter, project: null })} style={chip}>{proj(filter.project).name} ×</button>}
           {filter.stage && <button onClick={() => setFilter({ ...filter, stage: null })} style={chip}>{stage(filter.stage).name} ×</button>}
           {filter.plant && <button onClick={() => setFilter({ ...filter, plant: null })} style={chip}><em>{filter.plant}</em> ×</button>}
+          {filter.author && <button onClick={() => setFilter({ ...filter, author: null })} style={chip}>@{filter.author} ×</button>}
         </div>
       )}
 
@@ -262,7 +297,7 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setFilter({ plant: null, project: null, stage: null })} style={{ ...btn(false), color: "#101A14", borderColor: "rgba(16,26,20,.3)" }}>Clear</button>
+              <button onClick={() => setFilter({ plant: null, project: null, stage: null, author: null })} style={{ ...btn(false), color: "#101A14", borderColor: "rgba(16,26,20,.3)" }}>Clear</button>
               <button onClick={() => setFiltersOpen(false)} style={{ ...btn(true), flex: 1 }}>Show {visible.length} garden{visible.length === 1 ? "" : "s"}</button>
             </div>
           </div>
@@ -288,9 +323,9 @@ export default function App() {
                   <svg width="30" height="30" viewBox="0 0 24 24" fill={liked[p.id] ? "#E7B93B" : "none"} stroke={liked[p.id] ? "#E7B93B" : "#F1EBDD"} strokeWidth="1.8"><path d="M12 21s-7-4.6-9.3-9.2C1 8 3.4 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.6 0 6 3.5 4.3 7.3C19 16.4 12 21 12 21z" /></svg>
                   <span style={{ fontSize: 12 }}>{p.likes}</span>
                 </button>
-                <button onClick={() => toggleFollow(p)} style={rail}>
+                <button onClick={() => { const own = user?.id && p.authorId === user.id; own ? openProfile(p.user) : toggleFollow(p); }} style={rail}>
                   <div style={{ width: 34, height: 34, borderRadius: 999, background: "#E7B93B", color: "#101A14", display: "grid", placeItems: "center", fontSize: 16 }}>{p.user[0].toUpperCase()}</div>
-                  <span style={{ fontSize: 12 }}>{following[p.user] ? "Following" : "Follow"}</span>
+                  <span style={{ fontSize: 12 }}>{user?.id && p.authorId === user.id ? "You" : following[p.user] ? "Following" : "Follow"}</span>
                 </button>
                 <button onClick={() => requireAccount(() => setReportFor(p.id))} style={rail} title="Report this post">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F1EBDD" strokeWidth="1.8"><path d="M5 21V4h13l-2.5 4L18.5 12H5" /></svg>
@@ -301,7 +336,7 @@ export default function App() {
               {/* Caption block */}
               <div style={{ position: "absolute", left: 16, right: 80, bottom: 28 }}>
                 <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 4 }}>
-                  @{p.user}
+                  <button onClick={() => openProfile(p.user)} style={{ background: "none", border: "none", padding: 0, color: "inherit", fontFamily: "inherit", fontSize: "inherit", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(241,235,221,.35)" }}>@{p.user}</button>
                   {p.user.startsWith("demo_") && <span title="Seed content posted by the Keystone team, not a real gardener" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>demo</span>}
                   {p.user.startsWith("pinnacle_") && <span title="Curated by the Keystone team, celebrating a pioneer of this movement" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#F1EBDD", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>★ featured</span>}
                   {" "}· {p.region} · {p.ago}
@@ -341,6 +376,50 @@ export default function App() {
             </div>
           ))}
           <div style={{ fontSize: 12, opacity: 0.55, lineHeight: 1.5 }}>Genera from the National Wildlife Federation keystone plant guides. Species names and native ranges will come from iNaturalist and USDA PLANTS.</div>
+        </div>
+      )}
+
+      {/* Profile */}
+      {view === "profile" && profile && (
+        <div style={{ height: "100%", overflowY: "auto", padding: "70px 16px 100px" }}>
+          <button onClick={() => setView("feed")} style={btn(false)}>‹ Feed</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "18px 0 10px" }}>
+            <div style={{ width: 64, height: 64, borderRadius: 999, background: "#E7B93B", color: "#101A14", display: "grid", placeItems: "center", fontSize: 28, flexShrink: 0 }}>{profile.username[0].toUpperCase()}</div>
+            <div>
+              <div style={{ fontSize: 20 }}>
+                @{profile.username}
+                {profile.username.startsWith("demo_") && <span style={{ marginLeft: 8, padding: "1px 8px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 11, verticalAlign: "3px" }}>demo</span>}
+                {profile.username.startsWith("pinnacle_") && <span style={{ marginLeft: 8, padding: "1px 8px", borderRadius: 999, background: "#F1EBDD", color: "#101A14", fontSize: 11, verticalAlign: "3px" }}>★ featured</span>}
+              </div>
+              {profile.display_name && <div style={{ fontSize: 14, opacity: 0.7 }}>{profile.display_name}</div>}
+              <div style={{ fontSize: 13, opacity: 0.6 }}>{profile.posts.length} post{profile.posts.length === 1 ? "" : "s"} · {profile.followers} follower{profile.followers === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+          {user?.name !== profile.username && (
+            <button onClick={() => toggleFollow({ user: profile.username, authorId: profile.id })} style={{ ...btn(!following[profile.username]), marginBottom: 14 }}>
+              {following[profile.username] ? "Following" : "Follow"}
+            </button>
+          )}
+          {(() => {
+            const gardens = [...new Map(profile.posts.filter((p) => p.garden).map((p) => [p.garden, p.zone])).entries()];
+            return gardens.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                {gardens.map(([g, z]) => <span key={g} style={{ ...chip, cursor: "default" }}><em>{g}</em>{z ? ` · zone ${z}` : ""}</span>)}
+              </div>
+            );
+          })()}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+            {profile.posts.map((p) => (
+              <button key={p.id} onClick={() => { setFilter({ ...filter, author: profile.username }); setView("feed"); }}
+                style={{ position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "none", padding: 0, cursor: "pointer", background: "#1A2A20" }}>
+                {p.srcs?.[0]
+                  ? <img src={p.srcs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <PlantPhoto plants={p.plants} />}
+                {p.stage && <span style={{ position: "absolute", left: 6, bottom: 6, padding: "2px 7px", borderRadius: 999, background: "rgba(16,26,20,.7)", color: "#F1EBDD", fontSize: 10 }}>{stage(p.stage)?.name}</span>}
+              </button>
+            ))}
+          </div>
+          {profile.posts.length === 0 && <div style={{ opacity: 0.6, fontSize: 14 }}>No gardens posted yet.</div>}
         </div>
       )}
 
