@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported } from "./lib/api.js";
 
 /*
   Milkweed — a public, gardens-only photo feed.
@@ -140,6 +140,7 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   const [reportFor, setReportFor] = useState(null);
   const [queue, setQueue] = useState([]);
+  const [incidents, setIncidents] = useState([]);
   const [draft, setDraft] = useState({ region: "Eastern Temperate Forests", project: null, stage: null, plants: [], caption: "", srcs: [], gardenName: "", zone: "" });
   const fileRef = useRef();
   const scrollToRef = useRef(null); // post id to jump to when returning to the feed
@@ -255,7 +256,8 @@ export default function App() {
         else if (res.status !== "live") setNotice("Your garden is in review — it'll appear in the feed once approved.");
       } catch (e) {
         console.error("publish", e);
-        alert(`Couldn't publish: ${e.message ?? e}`);
+        // Server messages (rate limits, etc.) are written for humans — show as-is.
+        setNotice(e.message ?? "Couldn't publish — please try again.");
         return;
       } finally {
         setPublishing(false);
@@ -313,7 +315,7 @@ export default function App() {
         <Wordmark size={24} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {user?.isAdmin && (
-            <button onClick={async () => { setView("mod"); try { setQueue(await fetchModerationQueue()); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
+            <button onClick={async () => { setView("mod"); try { const [q, inc] = await Promise.all([fetchModerationQueue(), fetchIncidents()]); setQueue(q); setIncidents(inc); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
           )}
           <button onClick={() => setView(view === "plants" ? "feed" : "plants")} style={btn(view === "plants")}>Plants</button>
           <button onClick={() => setView(view === "about" ? "feed" : "about")} style={btn(view === "about")} title="About & support">♡</button>
@@ -526,6 +528,22 @@ export default function App() {
       {/* Moderation queue (admins only) */}
       {view === "mod" && (
         <div style={{ height: "100%", overflowY: "auto", padding: "70px 16px 100px" }}>
+          {incidents.length > 0 && (
+            <div style={{ marginBottom: 18, padding: 14, borderRadius: 12, border: "1.5px solid #a63244", background: "rgba(166,50,68,.12)" }}>
+              <div style={{ fontSize: 15, color: "#e79aa4", marginBottom: 6 }}>⚠ {incidents.length} child-safety incident{incidents.length === 1 ? "" : "s"} — action required</div>
+              <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.5, marginBottom: 10 }}>
+                Suspected child sexual content was detected and removed from public view. The image is preserved
+                privately as evidence — <b>do not attempt to view it</b>. US law requires reporting to NCMEC
+                (report.cybertip.org). See docs/safety-csam.md. Mark reported once you have filed.
+              </div>
+              {incidents.map((inc) => (
+                <div key={inc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 12, padding: "6px 0", borderTop: "1px solid rgba(241,235,221,.15)" }}>
+                  <span>#{inc.id} · {new Date(inc.created_at).toLocaleDateString()} · author {String(inc.author_id).slice(0, 8)}</span>
+                  <button onClick={async () => { try { await markIncidentReported(inc.id); setIncidents(await fetchIncidents()); } catch (e) { console.error("incident", e); } }} style={{ ...btn(false), fontSize: 12, padding: "5px 10px" }}>Mark reported</button>
+                </div>
+              ))}
+            </div>
+          )}
           <p style={{ fontSize: 14, opacity: 0.75, margin: "0 0 14px" }}>Posts waiting on review, flagged by the scanner, or reported by the community.</p>
           {queue.length === 0 && <div style={{ opacity: 0.7 }}>Queue is clear.</div>}
           {queue.map((q) => (

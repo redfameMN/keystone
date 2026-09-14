@@ -197,6 +197,19 @@ export async function fetchModerationQueue() {
   }));
 }
 
+// Child-safety incidents (admin only). Metadata only — the image itself lives in
+// the private quarantine bucket and is never fetched into the browser.
+export async function fetchIncidents() {
+  const { data, error } = await supabase.from("safety_incident").select().eq("reported", false).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function markIncidentReported(id) {
+  const { error } = await supabase.from("safety_incident").update({ reported: true }).eq("id", id);
+  if (error) throw error;
+}
+
 export async function moderatePost(postId, action) { // 'approve' | 'remove'
   const { data, error } = await supabase.from("post")
     .update({ status: action === "approve" ? "live" : "removed" }).eq("id", postId).select("id");
