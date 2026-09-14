@@ -33,6 +33,29 @@ function PlantPhoto({ plants, src }) {
 
 const ZONES = Array.from({ length: 13 }, (_, i) => [`${i + 1}a`, `${i + 1}b`]).flat(); // USDA 1a–13b
 
+function Monarch({ size = 46 }) {
+  const wing = (
+    <>
+      <path d="M33 30 C 44 12, 58 8, 60 16 C 62 24, 48 32, 38 33 C 50 34, 58 40, 55 48 C 52 55, 40 50, 34 40 Z"
+        fill="#E7893B" stroke="#1a120b" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d="M36 31 C 44 22, 51 16, 58 15 M37 33 C 46 34, 52 38, 55 45" stroke="#1a120b" strokeWidth="1.6" fill="none" />
+      <circle cx="56" cy="13" r="1.6" fill="#F1EBDD" />
+      <circle cx="59.5" cy="19.5" r="1.3" fill="#F1EBDD" />
+      <circle cx="54" cy="47" r="1.4" fill="#F1EBDD" />
+    </>
+  );
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      {/* mirror lives on the outer group: the flap animation's CSS transform would override an attribute transform */}
+      <g transform="scale(-1,1) translate(-64,0)"><g className="monarch-wing">{wing}</g></g>
+      <g className="monarch-wing">{wing}</g>
+      <ellipse cx="32" cy="34" rx="2.6" ry="9" fill="#1a120b" />
+      <circle cx="32" cy="24" r="3" fill="#1a120b" />
+      <path d="M30 22 C 27 17, 25 15, 22 14 M34 22 C 37 17, 39 15, 42 14" stroke="#1a120b" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function PhotoStrip({ plants, srcs }) {
   const strip = useRef(null);
   const [idx, setIdx] = useState(0);
@@ -577,10 +600,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Post button */}
+      {/* Post button — a monarch fluttering in the corner */}
+      <style>{`
+        @keyframes monarch-bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(5deg); } }
+        @keyframes monarch-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.72); } }
+        .monarch-btn { animation: monarch-bob 3.4s ease-in-out infinite; }
+        .monarch-wing { transform-origin: 32px 32px; transform-box: view-box; animation: monarch-flap 2.2s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .monarch-btn, .monarch-wing { animation: none; } }
+      `}</style>
       {view !== "post" && view !== "mod" && (
-        <button onClick={startPost} style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 5, padding: "12px 22px", borderRadius: 999, background: "#E7B93B", color: "#101A14", border: "none", fontSize: 15, fontFamily: "inherit", cursor: "pointer" }}>
-          Post a garden
+        <button onClick={startPost} aria-label="Post a garden" title="Post a garden" className="monarch-btn"
+          style={{ position: "absolute", bottom: 16, right: 12, zIndex: 5, background: "none", border: "none", padding: 6, cursor: "pointer", fontFamily: "inherit", filter: "drop-shadow(0 4px 8px rgba(0,0,0,.5))" }}>
+          <Monarch />
+          <span style={{ display: "block", fontSize: 11, color: "#F1EBDD", opacity: 0.85, marginTop: 1 }}>Post</span>
         </button>
       )}
 
