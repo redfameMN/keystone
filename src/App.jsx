@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus } from "./lib/api.js";
 
 /*
   Milkweed — a public, gardens-only photo feed.
@@ -318,11 +318,35 @@ export default function App() {
     }
   };
 
-  const acceptSuggestion = (name) => {
-    const g = name.split(" ")[0];
-    if (!genus(g)) { setIdState((s) => ({ ...s, msg: `${g} isn't in the native list yet — tag manually.` })); return; }
-    setDraft((d) => ({ ...d, plants: d.plants.includes(g) ? d.plants : [...d.plants, g] }));
-    setIdState((s) => ({ ...s, suggestions: s.suggestions.filter((x) => x.name !== name) }));
+  // Selected-plant helpers. draft.plants holds genus strings; plantMeta caches
+  // common names for genera outside the built-in vocabulary (from search / ID).
+  const plantMeta = useRef({});
+  const [plantQuery, setPlantQuery] = useState("");
+  const [plantResults, setPlantResults] = useState([]);
+  const searchTimer = useRef(null);
+  const plantLabel = (g) => genus(g)?.common ?? plantMeta.current[g] ?? null;
+
+  const addPlant = async (g, common) => {
+    if (!g) return;
+    if (common) plantMeta.current[g] = common;
+    setDraft((d) => (d.plants.includes(g) ? d : { ...d, plants: [...d.plants, g] }));
+    setPlantQuery(""); setPlantResults([]);
+    if (hasSupabase && !genus(g)) { try { await ensureGenus(g, common); } catch (e) { console.error("genus", e); } }
+  };
+  const removePlant = (g) => setDraft((d) => ({ ...d, plants: d.plants.filter((y) => y !== g) }));
+
+  const onPlantSearch = (v) => {
+    setPlantQuery(v);
+    clearTimeout(searchTimer.current);
+    if (v.trim().length < 2) { setPlantResults([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      try { setPlantResults(await searchPlants(v)); } catch (e) { console.error("search", e); }
+    }, 350);
+  };
+
+  const acceptSuggestion = (s) => {
+    addPlant(s.name.split(" ")[0], s.common ?? genus(s.name.split(" ")[0])?.common);
+    setIdState((st) => ({ ...st, suggestions: st.suggestions.filter((x) => x.name !== s.name) }));
   };
 
   // 100dvh (dynamic viewport height) tracks the *visible* area on mobile, so the
@@ -668,7 +692,7 @@ export default function App() {
                     const ks = isKeystone(g, draft.region);
                     const common = s.common ?? genus(g)?.common; // species name from the identifier, else our genus vocabulary
                     return (
-                      <button key={s.name} onClick={() => acceptSuggestion(s.name)} style={{ ...btn(false), display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6, borderRadius: 10, borderColor: ks ? "#E7B93B" : undefined }}>
+                      <button key={s.name} onClick={() => acceptSuggestion(s)} style={{ ...btn(false), display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6, borderRadius: 10, borderColor: ks ? "#E7B93B" : undefined }}>
                         <span style={{ textAlign: "left" }}>
                           {common && <span style={{ display: "block", fontSize: 15 }}>{common}</span>}
                           <span style={{ opacity: common ? 0.7 : 1, fontSize: common ? 12 : undefined }}><em>{s.name}</em></span>
@@ -709,10 +733,35 @@ export default function App() {
           </div>
 
           <label style={lbl}>What's growing in it? (required)</label>
+          {draft.plants.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {draft.plants.map((g) => (
+                <button key={g} onClick={() => removePlant(g)} title="Remove"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, border: "none", background: "#E7B93B", color: "#101A14", fontFamily: "inherit", fontSize: 12, cursor: "pointer" }}>
+                  <em>{g}</em>{plantLabel(g) && <span style={{ opacity: 0.75 }}>{plantLabel(g)}</span>}
+                  <span style={{ fontWeight: "bold" }}>×</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ position: "relative" }}>
+            <input value={plantQuery} onChange={(e) => onPlantSearch(e.target.value)} placeholder="Search any plant by name…" style={{ ...input, marginTop: 0 }} />
+            {plantResults.length > 0 && (
+              <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 8, background: "#1A2A20", border: "1px solid rgba(241,235,221,.25)", borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 20px rgba(0,0,0,.5)" }}>
+                {plantResults.map((r) => (
+                  <button key={r.genus} onClick={() => addPlant(r.genus, r.common)}
+                    style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", background: "none", border: "none", borderBottom: "1px solid rgba(241,235,221,.1)", color: "#F1EBDD", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}>
+                    {r.common ? <span>{r.common} · <em style={{ opacity: 0.7, fontSize: 12 }}>{r.name}</em></span> : <em>{r.name}</em>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.6, margin: "10px 0 6px" }}>Or tap a common native:</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {GENERA.map((x) => (
               <Tag key={x.g} g={x.g} region={draft.region} active={draft.plants.includes(x.g)} compact
-                onClick={() => setDraft((d) => ({ ...d, plants: d.plants.includes(x.g) ? d.plants.filter((y) => y !== x.g) : [...d.plants, x.g] }))} />
+                onClick={() => (draft.plants.includes(x.g) ? removePlant(x.g) : addPlant(x.g, genus(x.g)?.common))} />
             ))}
           </div>
 

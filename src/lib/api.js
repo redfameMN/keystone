@@ -181,6 +181,34 @@ export async function setPinned(postId, on) {
   if (!data?.length) throw new Error("not your post");
 }
 
+// Plant search via the iNaturalist taxa API (public, no key). Returns plants only,
+// deduped by genus, for the composer's manual-tag search.
+export async function searchPlants(term) {
+  const q = term?.trim();
+  if (!q || q.length < 2) return [];
+  const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=genus,species,subspecies&per_page=12&locale=en`);
+  if (!r.ok) return [];
+  const j = await r.json();
+  const seen = new Set(); const out = [];
+  for (const t of j.results ?? []) {
+    if (t.iconic_taxon_name && t.iconic_taxon_name !== "Plantae") continue; // plants only
+    const genus = t.rank === "genus" ? t.name : String(t.name).split(" ")[0];
+    if (!genus || !/^[A-Z][a-z]+$/.test(genus) || seen.has(genus)) continue;
+    seen.add(genus);
+    out.push({ genus, name: t.name, common: t.preferred_common_name ?? null });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+// Make sure a genus exists in the shared vocabulary before it's tagged (INSERT …
+// ON CONFLICT DO NOTHING, so the seed genera are never overwritten).
+export async function ensureGenus(genus, common) {
+  const { error } = await supabase.from("plant_genus")
+    .upsert({ genus, common_name: common ?? null, source: "user" }, { onConflict: "genus", ignoreDuplicates: true });
+  if (error && error.code !== "23505") throw error;
+}
+
 export async function reportPost(postId, uid, reason, note) {
   const { error } = await supabase.from("report").insert({ post_id: postId, reporter_id: uid, reason, note: note || null });
   if (error) throw error;
