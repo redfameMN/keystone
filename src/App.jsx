@@ -325,7 +325,9 @@ export default function App() {
     setIdState((s) => ({ ...s, suggestions: s.suggestions.filter((x) => x.name !== name) }));
   };
 
-  const shell = { fontFamily: "Georgia, 'Iowan Old Style', serif", background: "#101A14", color: "#F1EBDD", height: "100vh", maxWidth: 430, margin: "0 auto", position: "relative", overflow: "hidden" };
+  // 100dvh (dynamic viewport height) tracks the *visible* area on mobile, so the
+  // feed and the corner Post button aren't hidden behind the browser toolbar.
+  const shell = { fontFamily: "Georgia, 'Iowan Old Style', serif", background: "#101A14", color: "#F1EBDD", height: "100dvh", maxWidth: 430, margin: "0 auto", position: "relative", overflow: "hidden" };
 
   return (
     <div style={shell}>
@@ -762,9 +764,9 @@ export default function App() {
       `}</style>
       {view !== "post" && view !== "mod" && (
         <button onClick={startPost} aria-label="Post a garden" title="Post a garden"
-          style={{ position: "absolute", bottom: 16, right: 12, zIndex: 5, background: "none", border: "none", padding: 6, cursor: "pointer", fontFamily: "inherit", filter: "drop-shadow(0 4px 8px rgba(0,0,0,.5))" }}>
-          <span className="monarch-fly"><Monarch /></span>
-          <span style={{ display: "block", fontSize: 11, color: "#F1EBDD", opacity: 0.85, marginTop: 1 }}>Post</span>
+          style={{ position: "absolute", bottom: "calc(18px + env(safe-area-inset-bottom))", right: 14, zIndex: 6, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit" }}>
+          <span style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(16,26,20,.55)", backdropFilter: "blur(6px)", display: "grid", placeItems: "center", boxShadow: "0 4px 12px rgba(0,0,0,.5)" }}><span className="monarch-fly"><Monarch size={40} /></span></span>
+          <span style={{ fontSize: 11, color: "#F1EBDD", textShadow: "0 1px 3px rgba(0,0,0,.7)" }}>Post</span>
         </button>
       )}
 
