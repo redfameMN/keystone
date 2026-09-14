@@ -23,6 +23,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Build info
+        run: |
+          echo "VITE_BUILD_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          echo "VITE_BUILD_DATE=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
       - run: npm run build
         env:
           BASE_PATH: /   # site is served at the root of milkweed.garden

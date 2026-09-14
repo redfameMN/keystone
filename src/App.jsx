@@ -124,6 +124,25 @@ function Tag({ g, region, onClick, active }) {
   );
 }
 
+function Footer({ setView }) {
+  const sha = import.meta.env.VITE_BUILD_SHA;
+  const build = sha ? `build ${sha} · ${import.meta.env.VITE_BUILD_DATE}` : "dev build";
+  const link = { color: "#8a6420", textDecoration: "none", cursor: "pointer", background: "none", border: "none", fontFamily: "inherit", fontSize: 13, padding: 0 };
+  return (
+    <div style={{ width: "100%", maxWidth: 360, marginTop: 36, paddingTop: 18, borderTop: "1px solid rgba(241,235,221,.15)", textAlign: "center" }}>
+      <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <button onClick={() => setView("how")} style={link}>How it works</button>
+        <a href="https://github.com/redfameMN/keystone" target="_blank" rel="noopener noreferrer" style={link}>Source</a>
+        <a href="https://github.com/redfameMN/keystone/issues" target="_blank" rel="noopener noreferrer" style={link}>Feedback</a>
+      </div>
+      <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.7 }}>
+        © {new Date().getFullYear()} Milkweed · milkweed.garden<br />
+        v0.1.0 · {build}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [posts, setPosts] = useState(hasSupabase ? [] : SEED_POSTS);
   const [user, setUser] = useState(null);
@@ -523,6 +542,7 @@ export default function App() {
             Demo photos from Wikimedia Commons contributors (CC). Every photo you upload is stripped of location
             data before it leaves your device.
           </div>
+          <Footer setView={setView} />
         </div>
       )}
 
