@@ -638,7 +638,7 @@ export default function App() {
 
       {/* Post composer */}
       {view === "post" && (
-        <div style={{ height: "100%", overflowY: "auto", padding: "70px 16px 100px" }}>
+        <div style={{ height: "100%", overflowY: "auto", padding: "70px 16px 16px" }}>
           <div onClick={() => fileRef.current.click()} style={{ height: 220, borderRadius: 14, position: "relative", overflow: "hidden", cursor: "pointer", border: draft.srcs.length ? "none" : "1.5px dashed rgba(241,235,221,.4)", display: "grid", placeItems: "center" }}>
             {draft.srcs.length ? <PlantPhoto plants={draft.plants.length ? draft.plants : ["x"]} src={draft.srcs[0]} /> : <span style={{ opacity: 0.75 }}>Add photos of your garden (up to 6)</span>}
           </div>
@@ -717,9 +717,9 @@ export default function App() {
           <label style={lbl}>Caption (optional)</label>
           <textarea value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} rows={3} style={input} placeholder="How long has it been in? What showed up?" />
 
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <div style={{ position: "sticky", bottom: 0, display: "flex", gap: 10, margin: "16px -16px 0", padding: "12px 16px calc(12px + env(safe-area-inset-bottom))", background: "linear-gradient(rgba(16,26,20,0), #101A14 24%)" }}>
             <button onClick={() => setView("feed")} style={btn(false)}>Cancel</button>
-            <button onClick={publish} disabled={!draft.plants.length || publishing} style={{ ...btn(true), opacity: draft.plants.length && !publishing ? 1 : 0.4 }}>{publishing ? "Publishing…" : "Publish"}</button>
+            <button onClick={publish} disabled={!draft.plants.length || publishing} style={{ ...btn(true), flex: 1, opacity: draft.plants.length && !publishing ? 1 : 0.4 }}>{publishing ? "Publishing…" : "Publish"}</button>
           </div>
         </div>
       )}
