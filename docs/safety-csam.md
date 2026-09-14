@@ -40,10 +40,18 @@ crime. You are not required (or advised) to investigate or view the content.
   of content but is not the legal/industry gold standard, which is matching image
   hashes against known-CSAM databases. Before opening Milkweed to the general public
   (beyond friends), enroll in one of:
-  - **Microsoft PhotoDNA** (free; application/approval required) — hash matching.
-  - **Cloudflare CSAM Scanning Tool** (free; requires serving images through Cloudflare)
-    — automatically checks against NCMEC/ICMEC hash lists and can auto-report.
-  - A commercial trust-and-safety provider (Thorn Safer, Hive, etc.).
+  - **Microsoft PhotoDNA** (free for vetted orgs; application required) — RECOMMENDED
+    for Milkweed. It is a REST API, host-agnostic, so it drops into the `scan-post`
+    Edge Function alongside the Claude scan with no re-architecting, and offers an API
+    to file the NCMEC report. Apply: https://www.microsoft.com/en-us/photodna/
+  - **Cloudflare CSAM Scanning Tool** (free, easy onboarding) — but it only hashes
+    images that pass THROUGH Cloudflare's cache. Milkweed serves photos from Supabase
+    Storage, not through Cloudflare, so this tool would NOT see them as things are
+    built. It would require moving image serving to Cloudflare R2 or proxying storage
+    through an orange-clouded domain first. Docs:
+    https://developers.cloudflare.com/cache/reference/csam-scanning/
+  - A commercial trust-and-safety provider (Thorn Safer, Hive, etc.) — API-based,
+    fits the Edge Function model, paid.
 - The vision model can miss things or misjudge age. The community **report** button
   and this incident flow are the backstop — keep an eye on both.
 - Keep the `quarantine` bucket private and never add a public policy to it.
