@@ -517,10 +517,47 @@ export default function App() {
             Buy me a coffee
           </a>
           <div style={{ fontSize: 13, opacity: 0.6, marginTop: 10 }}>Venmo · @PugsPlantsPrints</div>
-          <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.6, marginTop: 34, maxWidth: 360 }}>
+          <button onClick={() => setView("how")} style={{ ...btn(false), marginTop: 28 }}>How Milkweed handles your data →</button>
+          <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.6, marginTop: 24, maxWidth: 360 }}>
             Keystone plant data from the National Wildlife Federation's ecoregion guides (Tallamy host-plant research).
             Demo photos from Wikimedia Commons contributors (CC). Every photo you upload is stripped of location
             data before it leaves your device.
+          </div>
+        </div>
+      )}
+
+      {/* How it works / privacy */}
+      {view === "how" && (
+        <div style={{ height: "100%", overflowY: "auto", padding: "80px 20px 100px" }}>
+          <div style={{ maxWidth: 400, margin: "0 auto" }}>
+            <button onClick={() => setView("about")} style={btn(false)}>‹ Back</button>
+            <h1 style={{ fontSize: 26, fontWeight: "normal", fontStyle: "italic", margin: "18px 0 6px" }}>How Milkweed works</h1>
+            <p style={{ fontSize: 14, lineHeight: 1.5, opacity: 0.75, margin: "0 0 24px" }}>
+              A garden feed shouldn't spy on you. Here's exactly what happens with your data — no fine print.
+            </p>
+            {[
+              { t: "Browse without an account", d: "Look at every garden without signing up, without cookies asking permission, without anything following you around. There are no ads and no third-party trackers or analytics anywhere in the app.",
+                i: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z M12 15a3 3 0 100-6 3 3 0 000 6z" },
+              { t: "Your location stays yours", d: "Before a photo ever leaves your device, your browser re-saves it and drops all its hidden metadata — including the GPS coordinates phones bury in photos. We only ever store the broad region you pick from a list, never where the photo was actually taken.",
+                i: "M12 21s-6-5.7-6-10a6 6 0 1112 0c0 4.3-6 10-6 10z M12 11a2 2 0 100-4 2 2 0 000 4z" },
+              { t: "AI, only where we tell you", d: "We use AI in exactly two places, both on purpose: (1) plant suggestions run only when you tap “Suggest plants” — never automatically; (2) every uploaded photo is automatically checked for safety before it can go public, which is how the feed stays gardens-only and safe. Images sent for either purpose are used only for that check — never to profile you, build an ad profile, or train models.",
+                i: "M12 3l1.9 4.8L19 9l-4.8 1.9L12 16l-1.9-5.1L5 9l5.1-1.2z M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" },
+              { t: "What we keep — and only this", d: "To post, we store your email (to sign you in), your username, and the gardens you choose to share. That's the whole list. We never sell it, rent it, or hand it to advertisers, because there are no advertisers.",
+                i: "M6 10V8a6 6 0 1112 0v2 M5 10h14v10H5z M12 14v3" },
+              { t: "No passwords to steal", d: "Signing in sends a one-time link to your email — there's no password to forget, reuse, or leak. Nothing sensitive is stored on our side.",
+                i: "M4 8h16v12H4z M8 8V6a4 4 0 018 0v2 M12 13v3" },
+            ].map((row) => (
+              <div key={row.t} style={{ display: "flex", gap: 14, marginBottom: 20, alignItems: "flex-start" }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#E7B93B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}><path d={row.i} /></svg>
+                <div>
+                  <div style={{ fontSize: 16, marginBottom: 3 }}>{row.t}</div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.5, opacity: 0.8 }}>{row.d}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, opacity: 0.55, lineHeight: 1.6, marginTop: 26, paddingTop: 16, borderTop: "1px solid rgba(241,235,221,.15)" }}>
+              Milkweed is open source — the code that does all of this is public at github.com/redfameMN/keystone, so you don't have to take our word for any of it.
+            </div>
           </div>
         </div>
       )}
@@ -718,6 +755,9 @@ export default function App() {
             <div style={{ fontSize: 20, marginBottom: 4 }}>Sign in to {pending ? "do that" : "post and follow"}</div>
             <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 16 }}>Browsing never needs an account.</div>
             <AuthForm onDone={(u) => { setUser(u); setAuthOpen(false); resumePending(u); }} />
+            <button onClick={() => { setAuthOpen(false); setView("how"); }} style={{ background: "none", border: "none", padding: 0, marginTop: 12, color: "#8a6420", fontFamily: "inherit", fontSize: 13, textDecoration: "underline", cursor: "pointer" }}>
+              What Milkweed does with your data →
+            </button>
           </div>
         </div>
       )}
