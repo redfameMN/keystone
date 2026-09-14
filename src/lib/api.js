@@ -47,7 +47,9 @@ export async function fetchPosts() {
 
 export async function sendMagicLink(email, username) {
   localStorage.setItem("keystone_username", username); // picked up by ensureProfile after the redirect
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+  // Origin alone is wrong when the app is served from a subpath (GitHub Pages /keystone/).
+  const redirect = new URL(import.meta.env.BASE_URL || "/", window.location.origin).href;
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect } });
   if (error) throw error;
 }
 
