@@ -108,18 +108,19 @@ function PhotoStrip({ plants, srcs }) {
   );
 }
 
-function Tag({ g, region, onClick, active }) {
+function Tag({ g, region, onClick, active, compact }) {
   const ks = isKeystone(g, region);
+  const dot = compact ? 6 : 8;
   return (
     <button onClick={onClick} style={{
-      display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 999,
+      display: "inline-flex", alignItems: "center", gap: compact ? 4 : 6, padding: compact ? "3px 8px" : "6px 10px", borderRadius: 999,
       border: `1.5px solid ${ks ? "#E7B93B" : "rgba(241,235,221,.35)"}`,
       background: active ? (ks ? "#E7B93B" : "#F1EBDD") : "rgba(16,26,20,.55)",
-      color: active ? "#101A14" : "#F1EBDD", fontSize: 13, cursor: "pointer", backdropFilter: "blur(6px)",
+      color: active ? "#101A14" : "#F1EBDD", fontSize: compact ? 12 : 13, cursor: "pointer", backdropFilter: "blur(6px)",
     }}>
-      {ks && <span title="Keystone in this ecoregion" style={{ width: 8, height: 8, borderRadius: 999, background: active ? "#101A14" : "#E7B93B" }} />}
+      {ks && <span title="Keystone in this ecoregion" style={{ width: dot, height: dot, borderRadius: 999, background: active ? "#101A14" : "#E7B93B", flexShrink: 0 }} />}
       <em style={{ fontStyle: "italic" }}>{g}</em>
-      <span style={{ opacity: 0.75 }}>{genus(g)?.common}</span>
+      <span style={{ opacity: 0.7, fontSize: compact ? 11 : undefined }}>{genus(g)?.common}</span>
     </button>
   );
 }
@@ -636,9 +637,10 @@ export default function App() {
         </div>
       )}
 
-      {/* Post composer */}
+      {/* Post composer — scrolling form with a permanently-docked action bar */}
       {view === "post" && (
-        <div style={{ height: "100%", overflowY: "auto", padding: "70px 16px 16px" }}>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "70px 16px 12px" }}>
           <div onClick={() => fileRef.current.click()} style={{ height: 220, borderRadius: 14, position: "relative", overflow: "hidden", cursor: "pointer", border: draft.srcs.length ? "none" : "1.5px dashed rgba(241,235,221,.4)", display: "grid", placeItems: "center" }}>
             {draft.srcs.length ? <PlantPhoto plants={draft.plants.length ? draft.plants : ["x"]} src={draft.srcs[0]} /> : <span style={{ opacity: 0.75 }}>Add photos of your garden (up to 6)</span>}
           </div>
@@ -707,20 +709,21 @@ export default function App() {
           </div>
 
           <label style={lbl}>What's growing in it? (required)</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {GENERA.map((x) => (
-              <Tag key={x.g} g={x.g} region={draft.region} active={draft.plants.includes(x.g)}
+              <Tag key={x.g} g={x.g} region={draft.region} active={draft.plants.includes(x.g)} compact
                 onClick={() => setDraft((d) => ({ ...d, plants: d.plants.includes(x.g) ? d.plants.filter((y) => y !== x.g) : [...d.plants, x.g] }))} />
             ))}
           </div>
 
           <label style={lbl}>Caption (optional)</label>
           <textarea value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} rows={3} style={input} placeholder="How long has it been in? What showed up?" />
-
-          <div style={{ position: "sticky", bottom: 0, display: "flex", gap: 10, margin: "16px -16px 0", padding: "12px 16px calc(12px + env(safe-area-inset-bottom))", background: "linear-gradient(rgba(16,26,20,0), #101A14 24%)" }}>
-            <button onClick={() => setView("feed")} style={btn(false)}>Cancel</button>
-            <button onClick={publish} disabled={!draft.plants.length || publishing} style={{ ...btn(true), flex: 1, opacity: draft.plants.length && !publishing ? 1 : 0.4 }}>{publishing ? "Publishing…" : "Publish"}</button>
-          </div>
+        </div>
+        {/* Docked action bar — always visible, no scrolling needed */}
+        <div style={{ flexShrink: 0, display: "flex", gap: 10, padding: "12px 16px calc(12px + env(safe-area-inset-bottom))", background: "#101A14", borderTop: "1px solid rgba(241,235,221,.12)" }}>
+          <button onClick={() => setView("feed")} style={btn(false)}>Cancel</button>
+          <button onClick={publish} disabled={!draft.plants.length || publishing} style={{ ...btn(true), flex: 1, opacity: draft.plants.length && !publishing ? 1 : 0.4 }}>{publishing ? "Publishing…" : `Publish${draft.plants.length ? "" : " · pick a plant"}`}</button>
+        </div>
         </div>
       )}
 
