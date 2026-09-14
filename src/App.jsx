@@ -281,7 +281,7 @@ export default function App() {
     <div style={shell}>
       {/* Top bar */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "linear-gradient(rgba(16,26,20,.85), rgba(16,26,20,0))" }}>
-        <div style={{ fontSize: 22, letterSpacing: -0.5 }}>Milkweed</div>
+        <div style={{ fontSize: 22, letterSpacing: -0.5, fontStyle: "italic" }}>Milkweed</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {user?.isAdmin && (
             <button onClick={async () => { setView("mod"); try { setQueue(await fetchModerationQueue()); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
