@@ -33,6 +33,35 @@ function PlantPhoto({ plants, src }) {
 
 const ZONES = Array.from({ length: 13 }, (_, i) => [`${i + 1}a`, `${i + 1}b`]).flat(); // USDA 1a–13b
 
+// Brand wordmark: milkweed seed as the i, stained-glass monarch as the w.
+// Dark-surface cut (cream borders); glyphs designed at 44px, scaled by `size`.
+function Wordmark({ size = 22 }) {
+  const s = size / 44;
+  const word = { fontSize: size, lineHeight: 1, letterSpacing: -1, fontStyle: "italic" };
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end" }} aria-label="Milkweed">
+      <span style={word}>M</span>
+      <svg width={15 * s} height={34 * s} viewBox="0 0 15 34" style={{ transform: "skewX(-8deg)", margin: "0 0 1px 1px" }}>
+        <g stroke="#E7B93B" strokeWidth="1.4" strokeLinecap="round">
+          <line x1="7.5" y1="17" x2="2" y2="3" /><line x1="7.5" y1="17" x2="7.5" y2="1" /><line x1="7.5" y1="17" x2="13" y2="3" />
+        </g>
+        <circle cx="2" cy="3" r="1.3" fill="#E7B93B" /><circle cx="7.5" cy="1" r="1.3" fill="#E7B93B" /><circle cx="13" cy="3" r="1.3" fill="#E7B93B" />
+        <path d="M7.5 16 C 4.6 20, 4.6 27.5, 7.5 33.5 C 10.4 27.5, 10.4 20, 7.5 16 Z" fill="#F1EBDD" />
+      </svg>
+      <span style={word}>lk</span>
+      <svg width={42 * s} height={34 * s} viewBox="0 0 60 48" style={{ transform: "skewX(-8deg)", margin: "0 -1px 1px 0" }}>
+        <path d="M28 17 C 21 8, 8 0, 4 5 C 1 10, 8 21, 21 26 Z" fill="#E7893B" stroke="#F1EBDD" strokeWidth="3.4" strokeLinejoin="round" />
+        <path d="M27 26 C 19 28, 13 36, 16 42 C 18.5 45.5, 25 41, 28 31 Z" fill="#E7893B" stroke="#F1EBDD" strokeWidth="3.4" strokeLinejoin="round" />
+        <path d="M32 17 C 39 8, 52 0, 56 5 C 59 10, 52 21, 39 26 Z" fill="#E7893B" stroke="#F1EBDD" strokeWidth="3.4" strokeLinejoin="round" />
+        <path d="M33 26 C 41 28, 47 36, 44 42 C 41.5 45.5, 35 41, 32 31 Z" fill="#E7893B" stroke="#F1EBDD" strokeWidth="3.4" strokeLinejoin="round" />
+        <ellipse cx="30" cy="24" rx="2.8" ry="9.5" fill="#F1EBDD" />
+        <circle cx="30" cy="12" r="3" fill="#F1EBDD" />
+      </svg>
+      <span style={word}>eed</span>
+    </div>
+  );
+}
+
 function Monarch({ size = 46 }) {
   const wing = (
     <>
@@ -281,12 +310,13 @@ export default function App() {
     <div style={shell}>
       {/* Top bar */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "linear-gradient(rgba(16,26,20,.85), rgba(16,26,20,0))" }}>
-        <div style={{ fontSize: 22, letterSpacing: -0.5, fontStyle: "italic" }}>Milkweed</div>
+        <Wordmark size={24} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {user?.isAdmin && (
             <button onClick={async () => { setView("mod"); try { setQueue(await fetchModerationQueue()); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
           )}
           <button onClick={() => setView(view === "plants" ? "feed" : "plants")} style={btn(view === "plants")}>Plants</button>
+          <button onClick={() => setView(view === "about" ? "feed" : "about")} style={btn(view === "about")} title="About & support">♡</button>
           {user
             ? <button onClick={() => { if (hasSupabase && window.confirm("Sign out?")) signOut(); }} style={{ ...btn(false), border: "none", opacity: 0.8, fontSize: 13 }}>@{user.name}</button>
             : <button onClick={() => setAuthOpen(true)} style={btn(false)}>Sign in</button>}
@@ -465,6 +495,31 @@ export default function App() {
             ))}
           </div>
           {profile.posts.length === 0 && <div style={{ opacity: 0.6, fontSize: 14 }}>No gardens posted yet.</div>}
+        </div>
+      )}
+
+      {/* About & support the creator */}
+      {view === "about" && (
+        <div style={{ height: "100%", overflowY: "auto", padding: "80px 24px 100px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+          <Wordmark size={34} />
+          <p style={{ fontSize: 15, lineHeight: 1.55, opacity: 0.85, margin: "22px 0 6px", maxWidth: 340 }}>
+            Milkweed is a free, ad-free feed for native gardens — built by one gardener who thinks
+            lawns make better prairies. Every post feeds the map of habitat coming back, yard by yard.
+          </p>
+          <p style={{ fontSize: 14, lineHeight: 1.5, opacity: 0.7, margin: "0 0 22px", maxWidth: 340 }}>
+            If Milkweed helped your garden grow, you can help keep the servers watered.
+          </p>
+          <a href="https://venmo.com/u/PugsPlantsPrints" target="_blank" rel="noopener noreferrer"
+            style={{ ...btn(true), textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", fontSize: 15 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#101A14" strokeWidth="1.8"><path d="M17 8h2a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-2M3 8h14v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8zM7 2v3M11 2v3M15 2v3" /></svg>
+            Buy me a coffee
+          </a>
+          <div style={{ fontSize: 13, opacity: 0.6, marginTop: 10 }}>Venmo · @PugsPlantsPrints</div>
+          <div style={{ fontSize: 12, opacity: 0.5, lineHeight: 1.6, marginTop: 34, maxWidth: 360 }}>
+            Keystone plant data from the National Wildlife Federation's ecoregion guides (Tallamy host-plant research).
+            Demo photos from Wikimedia Commons contributors (CC). Every photo you upload is stripped of location
+            data before it leaves your device.
+          </div>
         </div>
       )}
 

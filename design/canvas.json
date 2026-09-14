@@ -1,0 +1,20 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Refined" },
+    { "id": "page-2", "name": "First round" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "A · Pod & Monarch", "page": "page-1", "x": 0, "y": 0, "w": 560, "h": 480 },
+    { "file": "WordmarkMonarch.dc.html", "title": "B · Wordmark & Monarch", "page": "page-1", "x": 660, "y": 0, "w": 560, "h": 420 },
+    { "file": "SeedAloft.dc.html", "title": "1 · Seed Aloft", "page": "page-2", "x": 0, "y": 0, "w": 560, "h": 420 },
+    { "file": "Pod.dc.html", "title": "2 · The Pod", "page": "page-2", "x": 660, "y": 0, "w": 560, "h": 420 },
+    { "file": "Monarch.dc.html", "title": "3 · Wing Panel", "page": "page-2", "x": 1320, "y": 0, "w": 560, "h": 420 },
+    { "file": "Wordmark.dc.html", "title": "4 · Italic Wordmark", "page": "page-2", "x": 0, "y": 560, "w": 560, "h": 420 },
+    { "file": "Stamp.dc.html", "title": "5 · Garden Stamp", "page": "page-2", "x": 660, "y": 560, "w": 560, "h": 420 }
+  ],
+  "annotations": [
+    { "id": "refined-note", "page": "page-1", "x": 1320, "y": 0, "w": 300, "text": "Directions 2 + 4 merged, monarch added (the same monarch drawn for the app's Post button).\n\nA: full lockup, dark — app icon, splash, stickers.\nB: light editorial — site header, email, print.\n\nThey pair: A is the mark, B is the masthead. Pick one as primary and I'll build the full kit (favicon, app icon, avatar, horizontal lockup)." },
+    { "id": "brief", "page": "page-2", "x": 1320, "y": 560, "w": 300, "text": "First-round directions, kept for reference.\nPalette: deep green #101A14, cream #F1EBDD, gold #E7B93B, monarch orange #E7893B. Georgia serif, matching the app." }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}
