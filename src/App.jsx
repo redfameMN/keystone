@@ -289,7 +289,6 @@ export default function App() {
     setView("feed");
   };
 
-  const [idKey, setIdKey] = useState("");
   const [idState, setIdState] = useState({ status: "idle", suggestions: [] });
   const fileB64 = useRef(null);
   const fileObjs = useRef([]);
@@ -304,15 +303,15 @@ export default function App() {
     setIdState({ status: "idle", suggestions: [] });
     const r = new FileReader();
     r.onload = () => (fileB64.current = String(r.result).split(",")[1]);
-    r.readAsDataURL(cleaned[0]); // plant ID runs on the first photo
+    r.readAsDataURL(cleaned[0]); // plant ID runs on the first photo (always a JPEG after processPhoto)
   };
 
   const identify = async () => {
     if (!fileB64.current) return;
     setIdState({ status: "loading", suggestions: [] });
     try {
-      const s = await identifyPhoto(fileB64.current, idKey);
-      setIdState({ status: "done", suggestions: s });
+      const s = await identifyPhoto(fileB64.current, "jpg");
+      setIdState({ status: s.length ? "done" : "empty", suggestions: s });
     } catch (err) {
       setIdState({ status: "error", suggestions: [], msg: String(err.message) });
     }
@@ -655,12 +654,10 @@ export default function App() {
 
           {draft.srcs.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={identify} disabled={idState.status === "loading"} style={btn(false)}>
-                  {idState.status === "loading" ? "Looking…" : "Suggest plants from photo"}
-                </button>
-                <input placeholder="Plant.id key (optional, demo without)" value={idKey} onChange={(e) => setIdKey(e.target.value)} style={{ ...input, marginTop: 0, fontSize: 13, flex: 1 }} />
-              </div>
+              <button onClick={identify} disabled={idState.status === "loading"} style={btn(false)}>
+                {idState.status === "loading" ? "Looking at your photo…" : "Suggest plants from photo"}
+              </button>
+              {idState.status === "empty" && <div style={{ fontSize: 13, opacity: 0.7, marginTop: 8 }}>No plants recognized — tag them by hand below.</div>}
               {idState.suggestions.length > 0 && (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Tap to confirm — nothing is tagged until you do</div>

@@ -1,6 +1,7 @@
-// Plant identification. In dev with a key in the box, the browser calls Plant.id
-// directly. In production VITE_IDENTIFY_URL points at the Supabase Edge Function
-// (supabase/functions/identify) so the API key never ships to clients.
+// Plant identification. Calls the Supabase Edge Function (supabase/functions/identify),
+// which uses Claude vision server-side so the API key never ships to clients. Without
+// a backend (seed-data mode) it returns demo suggestions so the flow is still visible.
+import { supabase } from "./supabase.js";
 
 const DEMO = [
   { name: "Solidago canadensis", common: "Canada goldenrod", prob: 0.71 },
@@ -8,24 +9,14 @@ const DEMO = [
   { name: "Helianthus maximiliani", common: "Maximilian sunflower", prob: 0.06 },
 ];
 
-export async function identifyPhoto(base64, devKey) {
-  const fn = import.meta.env.VITE_IDENTIFY_URL;
-  if (fn) {
-    const r = await fetch(fn, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: base64 }) });
-    if (!r.ok) throw new Error(`identify ${r.status}`);
-    return (await r.json()).suggestions;
+export async function identifyPhoto(base64, mediaType = "jpg") {
+  if (!supabase) { // seed-data mode, no backend
+    await new Promise((r) => setTimeout(r, 700));
+    return DEMO;
   }
-  if (!devKey) { await new Promise((r) => setTimeout(r, 700)); return DEMO; }
-  const res = await fetch("https://plant.id/api/v3/identification?details=common_names", {
-    method: "POST",
-    headers: { "Api-Key": devKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ images: [base64], similar_images: false }),
+  const { data, error } = await supabase.functions.invoke("identify", {
+    body: { image: base64, media_type: mediaType },
   });
-  if (!res.ok) throw new Error(`Plant.id ${res.status}`);
-  const j = await res.json();
-  return (j.result?.classification?.suggestions || []).slice(0, 3).map((x) => ({
-    name: x.name,
-    common: x.details?.common_names?.[0] ?? null,
-    prob: x.probability,
-  }));
+  if (error) throw new Error(error.message ?? "identify failed");
+  return data?.suggestions ?? [];
 }
