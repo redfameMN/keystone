@@ -604,14 +604,14 @@ export default function App() {
       <style>{`
         @keyframes monarch-bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-8px) rotate(5deg); } }
         @keyframes monarch-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.72); } }
-        .monarch-btn { animation: monarch-bob 3.4s ease-in-out infinite; }
+        .monarch-fly { display: block; animation: monarch-bob 3.4s ease-in-out infinite; }
         .monarch-wing { transform-origin: 32px 32px; transform-box: view-box; animation: monarch-flap 2.2s ease-in-out infinite; }
-        @media (prefers-reduced-motion: reduce) { .monarch-btn, .monarch-wing { animation: none; } }
+        @media (prefers-reduced-motion: reduce) { .monarch-fly, .monarch-wing { animation: none; } }
       `}</style>
       {view !== "post" && view !== "mod" && (
-        <button onClick={startPost} aria-label="Post a garden" title="Post a garden" className="monarch-btn"
+        <button onClick={startPost} aria-label="Post a garden" title="Post a garden"
           style={{ position: "absolute", bottom: 16, right: 12, zIndex: 5, background: "none", border: "none", padding: 6, cursor: "pointer", fontFamily: "inherit", filter: "drop-shadow(0 4px 8px rgba(0,0,0,.5))" }}>
-          <Monarch />
+          <span className="monarch-fly"><Monarch /></span>
           <span style={{ display: "block", fontSize: 11, color: "#F1EBDD", opacity: 0.85, marginTop: 1 }}>Post</span>
         </button>
       )}
