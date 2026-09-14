@@ -90,12 +90,15 @@ https://milkweed.garden — a vertical photo feed where people document turning
 lawns into native gardens over years.
 
 The stack, for the curious: React/Vite on GitHub Pages, Supabase (Postgres +
-RLS + magic-link auth + storage + an Edge Function). The part I'm happiest
-with is the safety pipeline: every post is quarantined at insert (enforced by
-a DB trigger, not app code), photos are EXIF-stripped client-side, then an
-Edge Function has Claude Haiku classify each image (is it a garden? any unsafe
-content?) before anything goes public — costs about a tenth of a cent per
-photo. Uncertain cases land in a moderation queue.
+RLS + magic-link auth + storage + Edge Functions). The part I'm happiest with
+is the safety pipeline: every post is quarantined at insert (enforced by a DB
+trigger, not app code), photos are EXIF/GPS-stripped client-side, then an Edge
+Function has an LLM classify each image (is it a garden? any unsafe content?)
+before anything goes public — ~a tenth of a cent per photo. Suspected child
+content is moved to a private evidence bucket and logged rather than deleted;
+posting is rate-limited; there's a moderation queue for uncertain cases. I also
+red-teamed my own RLS policies and found two real holes (a privilege-escalation
+and a NULL-logic bug that let the quarantine fail open) — happy to talk through
+those, they're good cautionary tales.
 
-Happy to answer questions about any of it. Feedback on the product welcome
-too — it's a week old.
+Feedback on the product or the stack welcome — it's about a week old.
