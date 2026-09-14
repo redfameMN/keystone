@@ -8,7 +8,7 @@ import App from "./App.jsx";
 const cfToken = import.meta.env.VITE_CF_BEACON_TOKEN;
 if (cfToken) {
   const s = document.createElement("script");
-  s.defer = true;
+  s.type = "module"; // matches Cloudflare's official snippet
   s.src = "https://static.cloudflareinsights.com/beacon.min.js";
   s.setAttribute("data-cf-beacon", JSON.stringify({ token: cfToken }));
   document.head.appendChild(s);
