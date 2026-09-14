@@ -180,7 +180,9 @@ export async function fetchModerationQueue() {
 }
 
 export async function moderatePost(postId, action) { // 'approve' | 'remove'
-  const { error } = await supabase.from("post").update({ status: action === "approve" ? "live" : "removed" }).eq("id", postId);
+  const { data, error } = await supabase.from("post")
+    .update({ status: action === "approve" ? "live" : "removed" }).eq("id", postId).select("id");
   if (error) throw error;
+  if (!data?.length) throw new Error("no rows updated — missing moderator access?");
   await supabase.from("report").update({ resolved: true }).eq("post_id", postId);
 }

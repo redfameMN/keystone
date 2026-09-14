@@ -363,8 +363,18 @@ export default function App() {
                 <div key={i} style={{ fontSize: 12, color: "#E7B93B", marginTop: 4 }}>⚑ {r.reason}{r.note ? ` — ${r.note}` : ""}</div>
               ))}
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button onClick={async () => { await moderatePost(q.id, "approve"); setQueue(await fetchModerationQueue()); setPosts(await fetchPosts()); }} style={btn(true)}>Approve</button>
-                <button onClick={async () => { await moderatePost(q.id, "remove"); setQueue(await fetchModerationQueue()); setPosts(await fetchPosts()); }} style={btn(false)}>Remove</button>
+                {["approve", "remove"].map((action) => (
+                  <button key={action} style={btn(action === "approve")} onClick={async () => {
+                    try {
+                      await moderatePost(q.id, action);
+                      setQueue(await fetchModerationQueue());
+                      setPosts(await fetchPosts());
+                    } catch (e) {
+                      console.error("moderate", e);
+                      setNotice(`Couldn't ${action}: ${e.message ?? e}`);
+                    }
+                  }}>{action === "approve" ? "Approve" : "Remove"}</button>
+                ))}
               </div>
             </div>
           ))}
