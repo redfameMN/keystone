@@ -8,7 +8,7 @@ if ($key -notlike "re_*") { Write-Error "~/.resend_key doesn't look like a Resen
 $body = @{
   external_email_enabled = $true
   smtp_admin_email = "hello@milkweed.garden"
-  smtp_sender_name = "Milkweed"
+  smtp_sender_name = "Milkweed $([char]::ConvertFromUtf32(0x1F98B))"  # butterfly emoji, built from code point so the .ps1 stays ASCII-safe
   smtp_host = "smtp.resend.com"
   smtp_port = "465"
   smtp_user = "resend"
@@ -16,6 +16,7 @@ $body = @{
   rate_limit_email_sent = 30
 } | ConvertTo-Json
 $r = Invoke-RestMethod -Method Patch -Uri "https://api.supabase.com/v1/projects/uoagpyprgmcxogobkzuw/config/auth" `
-  -Headers @{ Authorization = "Bearer $t" } -ContentType "application/json" -Body $body
+  -Headers @{ Authorization = "Bearer $t" } -ContentType "application/json; charset=utf-8" `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($body))
 "SMTP configured:"
 $r | Select-Object smtp_host, smtp_admin_email, smtp_sender_name, rate_limit_email_sent

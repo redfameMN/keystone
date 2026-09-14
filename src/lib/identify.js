@@ -3,9 +3,9 @@
 // (supabase/functions/identify) so the API key never ships to clients.
 
 const DEMO = [
-  { name: "Solidago canadensis", prob: 0.71 },
-  { name: "Symphyotrichum novae-angliae", prob: 0.18 },
-  { name: "Helianthus maximiliani", prob: 0.06 },
+  { name: "Solidago canadensis", common: "Canada goldenrod", prob: 0.71 },
+  { name: "Symphyotrichum novae-angliae", common: "New England aster", prob: 0.18 },
+  { name: "Helianthus maximiliani", common: "Maximilian sunflower", prob: 0.06 },
 ];
 
 export async function identifyPhoto(base64, devKey) {
@@ -23,5 +23,9 @@ export async function identifyPhoto(base64, devKey) {
   });
   if (!res.ok) throw new Error(`Plant.id ${res.status}`);
   const j = await res.json();
-  return (j.result?.classification?.suggestions || []).slice(0, 3).map((x) => ({ name: x.name, prob: x.probability }));
+  return (j.result?.classification?.suggestions || []).slice(0, 3).map((x) => ({
+    name: x.name,
+    common: x.details?.common_names?.[0] ?? null,
+    prob: x.probability,
+  }));
 }

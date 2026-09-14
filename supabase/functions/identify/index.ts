@@ -21,11 +21,16 @@ Deno.serve(async (req) => {
   const suggestions = [];
   for (const s of raw) {
     const genus = s.name.split(" ")[0];
-    const { data: g } = await sb.from("plant_genus").select("genus").eq("genus", genus).maybeSingle();
+    const { data: g } = await sb.from("plant_genus").select("genus, common_name").eq("genus", genus).maybeSingle();
     const { data: k } = ecoregion_id
       ? await sb.from("keystone_genus").select("genus").eq("genus", genus).eq("ecoregion_id", ecoregion_id).maybeSingle()
       : { data: null };
-    suggestions.push({ name: s.name, prob: s.probability, genus, in_native_list: !!g, keystone: !!k });
+    suggestions.push({
+      name: s.name,
+      common: s.details?.common_names?.[0] ?? g?.common_name ?? null,
+      prob: s.probability,
+      genus, in_native_list: !!g, keystone: !!k,
+    });
   }
   return Response.json({ suggestions });
 });

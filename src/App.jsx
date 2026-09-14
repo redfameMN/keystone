@@ -490,10 +490,15 @@ export default function App() {
                   {idState.suggestions.map((s) => {
                     const g = s.name.split(" ")[0];
                     const ks = isKeystone(g, draft.region);
+                    const common = s.common ?? genus(g)?.common; // species name from the identifier, else our genus vocabulary
                     return (
-                      <button key={s.name} onClick={() => acceptSuggestion(s.name)} style={{ ...btn(false), display: "flex", width: "100%", justifyContent: "space-between", marginBottom: 6, borderRadius: 10, borderColor: ks ? "#E7B93B" : undefined }}>
-                        <span><em>{s.name}</em>{ks && <span style={{ color: "#E7B93B" }}> · keystone here</span>}</span>
-                        <span style={{ opacity: 0.6 }}>{Math.round(s.prob * 100)}%</span>
+                      <button key={s.name} onClick={() => acceptSuggestion(s.name)} style={{ ...btn(false), display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6, borderRadius: 10, borderColor: ks ? "#E7B93B" : undefined }}>
+                        <span style={{ textAlign: "left" }}>
+                          {common && <span style={{ display: "block", fontSize: 15 }}>{common}</span>}
+                          <span style={{ opacity: common ? 0.7 : 1, fontSize: common ? 12 : undefined }}><em>{s.name}</em></span>
+                          {ks && <span style={{ color: "#E7B93B", fontSize: 12 }}> · keystone here</span>}
+                        </span>
+                        <span style={{ opacity: 0.6, whiteSpace: "nowrap" }}>{Math.round(s.prob * 100)}%</span>
                       </button>
                     );
                   })}
