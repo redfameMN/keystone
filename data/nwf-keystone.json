@@ -1,0 +1,98 @@
+[
+  {
+    "ecoregion_id": 8,
+    "genus": "Quercus",
+    "host_rank": 1,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Prunus",
+    "host_rank": 2,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Salix",
+    "host_rank": 3,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Betula",
+    "host_rank": 4,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Populus",
+    "host_rank": 5,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Acer",
+    "host_rank": 6,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Solidago",
+    "host_rank": 7,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Symphyotrichum",
+    "host_rank": 8,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 8,
+    "genus": "Helianthus",
+    "host_rank": 9,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Quercus",
+    "host_rank": 1,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Populus",
+    "host_rank": 2,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Salix",
+    "host_rank": 3,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Prunus",
+    "host_rank": 4,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Solidago",
+    "host_rank": 5,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Symphyotrichum",
+    "host_rank": 6,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  },
+  {
+    "ecoregion_id": 9,
+    "genus": "Helianthus",
+    "host_rank": 7,
+    "source_url": "https://www.nwf.org/garden-for-wildlife/about/native-plants/keystone-plants-by-ecoregion"
+  }
+]
