@@ -29,6 +29,8 @@ jobs:
           VITE_SUPABASE_URL: https://uoagpyprgmcxogobkzuw.supabase.co
           # The anon key is a public client credential by design; RLS is the boundary.
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Cloudflare Web Analytics beacon token (public, cookieless). Empty = no beacon.
+          VITE_CF_BEACON_TOKEN: ${{ vars.VITE_CF_BEACON_TOKEN }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -536,7 +536,7 @@ export default function App() {
               A garden feed shouldn't spy on you. Here's exactly what happens with your data — no fine print.
             </p>
             {[
-              { t: "Browse without an account", d: "Look at every garden without signing up, without cookies asking permission, without anything following you around. There are no ads and no third-party trackers or analytics anywhere in the app.",
+              { t: "Browse without an account", d: "Look at every garden without signing up and without anything following you around. There are no ads, no cookies, and no advertising trackers. To see how many people visit, we use Cloudflare's privacy-first analytics — it counts page views without cookies, without personal data, and without tracking you across other sites.",
                 i: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z M12 15a3 3 0 100-6 3 3 0 000 6z" },
               { t: "Your location stays yours", d: "Before a photo ever leaves your device, your browser re-saves it and drops all its hidden metadata — including the GPS coordinates phones bury in photos. We only ever store the broad region you pick from a list, never where the photo was actually taken.",
                 i: "M12 21s-6-5.7-6-10a6 6 0 1112 0c0 4.3-6 10-6 10z M12 11a2 2 0 100-4 2 2 0 000 4z" },

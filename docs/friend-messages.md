@@ -31,8 +31,9 @@ lean into it.
 > No catch — it's free, no ads, and I'm not selling anything. Browsing needs no
 > account; posting is just a magic link to your email (no password). Photos get
 > their location data stripped automatically so your backyard can't be pinpointed,
-> and everything's screened before it goes public. It's genuinely just a nicer
-> place to keep garden photos than Instagram.
+> and everything's screened before it goes public. The only analytics is a
+> cookieless visitor counter (so I know if anyone's showing up) — no personal data.
+> It's genuinely just a nicer place to keep garden photos than Instagram.
 
 ## One-liner (bio, story, footer)
 
