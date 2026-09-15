@@ -114,7 +114,7 @@ export async function setFollow(followedId, uid, on) {
 
 export async function fetchMyGardens(uid) {
   const [gRes, pRes] = await Promise.all([
-    supabase.from("garden").select("id, name, zone, ecoregion_id").eq("owner_id", uid).order("created_at"),
+    supabase.from("garden").select("id, name, zone, ecoregion_id, state").eq("owner_id", uid).order("created_at"),
     supabase.from("garden_project").select("id, garden_id, name, project_type_id").eq("owner_id", uid).order("created_at"),
   ]);
   if (gRes.error) throw gRes.error;
@@ -123,12 +123,42 @@ export async function fetchMyGardens(uid) {
   return (gRes.data ?? []).map((g) => ({ ...g, projects: projByGarden[g.id] ?? [] }));
 }
 
-export async function createGarden(uid, name, zone, ecoregionId) {
+export async function createGarden(uid, name, zone, ecoregionId, state) {
   const { data, error } = await supabase.from("garden")
-    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null, ecoregion_id: ecoregionId ?? null })
-    .select("id, name, zone, ecoregion_id").single();
+    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null, ecoregion_id: ecoregionId ?? null, state: state || null })
+    .select("id, name, zone, ecoregion_id, state").single();
   if (error) throw error;
   return { ...data, projects: [] };
+}
+
+// States we have genus-level native-range coverage for (matches the seed in
+// migration 0017: contiguous US + DC). Outside these — AK, HI, territories — the
+// state tier stays "unknown" instead of guessing, so we never warn that a plant
+// native there (e.g. willow/birch in Alaska) isn't. Grow this as data is added.
+const COVERED_STATES = new Set(["AL","AZ","AR","CA","CO","CT","DE","DC","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"]);
+
+// Advisory native status for a set of genera in a US state (2-letter). Returns
+// { [genus]: { nativeUs, inState } }: nativeUs is true/false/null (null=unknown);
+// inState is true/false/null (null = no confident data → stay silent, never warn).
+// Trust rule: we only ever surface a warning when we're confident.
+export async function fetchNativeStatus(genera, state) {
+  const list = [...new Set((genera ?? []).filter(Boolean))];
+  if (!list.length) return {};
+  const covered = !!state && COVERED_STATES.has(state);
+  const [gRes, nRes] = await Promise.all([
+    supabase.from("plant_genus").select("genus, native_us").in("genus", list),
+    covered ? supabase.from("genus_native_state").select("genus, state").in("genus", list)
+            : Promise.resolve({ data: [] }),
+  ]);
+  if (gRes.error) throw gRes.error;
+  const tracked = {}, here = {};
+  for (const r of nRes.data ?? []) { tracked[r.genus] = true; if (r.state === state) here[r.genus] = true; }
+  const out = {};
+  for (const g of list) {
+    const nativeUs = (gRes.data ?? []).find((x) => x.genus === g)?.native_us ?? null;
+    out[g] = { nativeUs, inState: !covered ? null : tracked[g] ? !!here[g] : null };
+  }
+  return out;
 }
 
 export async function addProject(uid, gardenId, projectTypeId, name) {

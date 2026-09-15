@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, ECOREGION_IDS } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, ECOREGION_IDS } from "./lib/api.js";
 
 // Ecoregion id (stored on gardens/posts) -> display name, for keystone hints.
 const REGION_NAME = Object.fromEntries(Object.entries(ECOREGION_IDS).map(([n, i]) => [i, n]));
@@ -35,6 +35,8 @@ function PlantPhoto({ plants, src }) {
 }
 
 const ZONES = Array.from({ length: 13 }, (_, i) => [`${i + 1}a`, `${i + 1}b`]).flat(); // USDA 1a–13b
+// US states + DC, for a garden's location (drives the "is this native here?" check).
+const US_STATES = [["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],["CO","Colorado"],["CT","Connecticut"],["DE","Delaware"],["DC","District of Columbia"],["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],["IN","Indiana"],["IA","Iowa"],["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],["MN","Minnesota"],["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],["NH","New Hampshire"],["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],["OR","Oregon"],["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],["TN","Tennessee"],["TX","Texas"],["UT","Utah"],["VT","Vermont"],["VA","Virginia"],["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"]];
 
 // Brand wordmark: milkweed seed as the i, stained-glass monarch as the w.
 // Dark-surface cut (cream borders); glyphs designed at 44px, scaled by `size`.
@@ -172,6 +174,7 @@ export default function App() {
   const [setupProjectFor, setSetupProjectFor] = useState(null); // gardenId adding a project on profile
   const [setupProject, setSetupProject] = useState({ type: "", name: "" });
   const [draft, setDraft] = useState({ stage: null, plants: [], caption: "", srcs: [], gardenId: "", projectId: "" });
+  const [nativeStatus, setNativeStatus] = useState({}); // genus -> { nativeUs, inState }
   const refreshGardens = (uid) => fetchMyGardens(uid).then(setMyGardens).catch((e) => console.error("gardens", e));
   const fileRef = useRef();
   const scrollToRef = useRef(null); // post id to jump to when returning to the feed
@@ -283,6 +286,16 @@ export default function App() {
   };
   // The composer's region for keystone hints comes from the chosen garden.
   const composerRegion = REGION_NAME[myGardens.find((x) => x.id === draft.gardenId)?.ecoregion_id] ?? "";
+  const composerState = myGardens.find((x) => x.id === draft.gardenId)?.state ?? "";
+
+  // "Is this native here?" — look up native status for the tagged plants against
+  // the garden's state whenever either changes. Advisory only; never blocks a post.
+  useEffect(() => {
+    if (!hasSupabase || !draft.plants.length) { setNativeStatus({}); return; }
+    let live = true;
+    fetchNativeStatus(draft.plants, composerState).then((s) => { if (live) setNativeStatus(s); }).catch((e) => console.error("native", e));
+    return () => { live = false; };
+  }, [draft.plants.join(","), composerState]);
 
   const publish = async () => {
     // A photo is the whole point — no photo, no post.
@@ -596,16 +609,21 @@ export default function App() {
                     <option value="">Ecoregion…</option>{ECOREGIONS.map((r) => <option key={r}>{r}</option>)}
                   </select>
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <select value={setupGarden.state} onChange={(e) => setSetupGarden({ ...setupGarden, state: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
+                      <option value="">State (for native check)…</option>{US_STATES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}
+                    </select>
                     <select value={setupGarden.zone} onChange={(e) => setSetupGarden({ ...setupGarden, zone: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
                       <option value="">Zone (optional)</option>{ZONES.map((z) => <option key={z}>{z}</option>)}
                     </select>
-                    <button style={{ ...btn(true), opacity: setupGarden.name.trim().length > 1 && setupGarden.region ? 1 : 0.4 }} disabled={setupGarden.name.trim().length < 2 || !setupGarden.region}
-                      onClick={async () => { try { await createGarden(user.id, setupGarden.name, setupGarden.zone || null, ECOREGION_IDS[setupGarden.region]); await refreshGardens(user.id); setSetupGarden(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button style={{ ...btn(true), flex: 1, opacity: setupGarden.name.trim().length > 1 && setupGarden.region ? 1 : 0.4 }} disabled={setupGarden.name.trim().length < 2 || !setupGarden.region}
+                      onClick={async () => { try { await createGarden(user.id, setupGarden.name, setupGarden.zone || null, ECOREGION_IDS[setupGarden.region], setupGarden.state || null); await refreshGardens(user.id); setSetupGarden(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create</button>
                     <button style={btn(false)} onClick={() => setSetupGarden(null)}>Cancel</button>
                   </div>
                 </div>
               ) : (
-                <button onClick={() => setSetupGarden({ name: "", zone: "", region: "" })} style={{ ...btn(false), marginTop: 4 }}>＋ New garden</button>
+                <button onClick={() => setSetupGarden({ name: "", zone: "", region: "", state: "" })} style={{ ...btn(false), marginTop: 4 }}>＋ New garden</button>
               )}
             </div>
           )}
@@ -836,7 +854,7 @@ export default function App() {
 
           <label style={lbl}>Which garden?</label>
           <select value={newGardenForm ? "__new" : draft.gardenId}
-            onChange={(e) => { const v = e.target.value; if (v === "__new") setNewGardenForm({ name: "", zone: "", region: "" }); else { setNewGardenForm(null); setDraft({ ...draft, gardenId: v, projectId: "" }); } }} style={input}>
+            onChange={(e) => { const v = e.target.value; if (v === "__new") setNewGardenForm({ name: "", zone: "", region: "", state: "" }); else { setNewGardenForm(null); setDraft({ ...draft, gardenId: v, projectId: "" }); } }} style={input}>
             <option value="">No garden — just a post</option>
             {myGardens.map((g) => <option key={g.id} value={g.id}>{g.name}{g.zone ? ` · zone ${g.zone}` : ""}</option>)}
             <option value="__new">＋ New garden…</option>
@@ -848,12 +866,15 @@ export default function App() {
                 <option value="">Ecoregion…</option>{ECOREGIONS.map((r) => <option key={r}>{r}</option>)}
               </select>
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <select value={newGardenForm.state} onChange={(e) => setNewGardenForm({ ...newGardenForm, state: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
+                  <option value="">State (for native check)…</option>{US_STATES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}
+                </select>
                 <select value={newGardenForm.zone} onChange={(e) => setNewGardenForm({ ...newGardenForm, zone: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
                   <option value="">Zone (optional)</option>{ZONES.map((z) => <option key={z}>{z}</option>)}
                 </select>
-                <button style={{ ...btn(true), opacity: newGardenForm.name.trim().length > 1 && newGardenForm.region ? 1 : 0.4 }} disabled={newGardenForm.name.trim().length < 2 || !newGardenForm.region}
-                  onClick={async () => { try { const g = await createGarden(user.id, newGardenForm.name, newGardenForm.zone || null, ECOREGION_IDS[newGardenForm.region]); await refreshGardens(user.id); setDraft({ ...draft, gardenId: g.id, projectId: "" }); setNewGardenForm(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create garden</button>
               </div>
+              <button style={{ ...btn(true), width: "100%", marginTop: 8, opacity: newGardenForm.name.trim().length > 1 && newGardenForm.region ? 1 : 0.4 }} disabled={newGardenForm.name.trim().length < 2 || !newGardenForm.region}
+                onClick={async () => { try { const g = await createGarden(user.id, newGardenForm.name, newGardenForm.zone || null, ECOREGION_IDS[newGardenForm.region], newGardenForm.state || null); await refreshGardens(user.id); setDraft({ ...draft, gardenId: g.id, projectId: "" }); setNewGardenForm(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create garden</button>
             </div>
           )}
 
@@ -888,7 +909,7 @@ export default function App() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {STAGES.map((st) => <button key={st.id} onClick={() => setDraft({ ...draft, stage: draft.stage === st.id ? null : st.id })} style={pickDark(draft.stage === st.id)}>{st.name}</button>)}
           </div>
-          {draft.gardenId && composerRegion && <div style={{ fontSize: 12, opacity: 0.55, marginTop: 8 }}>Region: {composerRegion}{myGardens.find((x) => x.id === draft.gardenId)?.zone ? ` · zone ${myGardens.find((x) => x.id === draft.gardenId).zone}` : ""} (from your garden)</div>}
+          {draft.gardenId && composerRegion && <div style={{ fontSize: 12, opacity: 0.55, marginTop: 8 }}>Region: {composerRegion}{myGardens.find((x) => x.id === draft.gardenId)?.zone ? ` · zone ${myGardens.find((x) => x.id === draft.gardenId).zone}` : ""}{composerState ? ` · ${composerState}` : ""} (from your garden)</div>}
 
           <label style={lbl}>What's growing in it? (required)</label>
           {draft.plants.length > 0 && (
@@ -902,6 +923,29 @@ export default function App() {
               ))}
             </div>
           )}
+          {(() => {
+            // Native-status advisories for the tagged plants. Trust-safe: only shown
+            // when we're confident (curated non-native, or a state we have data for).
+            const warns = draft.plants.map((g) => {
+              const s = nativeStatus[g];
+              if (!s) return null;
+              if (s.nativeUs === false) return { g, bad: true, msg: `${g} isn't native to North America — likely introduced or invasive.` };
+              if (s.inState === false) return { g, bad: false, msg: `${g} isn't recorded as native in ${composerState}.` };
+              return null;
+            }).filter(Boolean);
+            if (!warns.length) return null;
+            return (
+              <div style={{ marginBottom: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                {warns.map((w) => (
+                  <div key={w.g} style={{ fontSize: 12, lineHeight: 1.4, padding: "8px 10px", borderRadius: 10,
+                    background: w.bad ? "rgba(201,118,95,.16)" : "rgba(231,185,59,.14)",
+                    border: `1px solid ${w.bad ? "rgba(201,118,95,.5)" : "rgba(231,185,59,.45)"}`, color: "#F1EBDD" }}>
+                    {w.bad ? "⚠ " : "◔ "}{w.msg} You can still post it — this is just a heads-up.
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           <div style={{ position: "relative" }}>
             <input value={plantQuery} onChange={(e) => onPlantSearch(e.target.value)} placeholder="Search any plant by name…" style={{ ...input, marginTop: 0 }} />
             {plantResults.length > 0 && (
