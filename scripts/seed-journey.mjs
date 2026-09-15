@@ -6,10 +6,15 @@ import { randomUUID } from "node:crypto";
 const url = process.env.SUPABASE_URL, service = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const sb = createClient(url, service);
 
-const { data: prof } = await sb.from("profile").select("id").eq("username", "demo_oak_owen").single();
+const { data: prof } = await sb.from("profile").select("id").eq("username", "demo_oak_owen").maybeSingle();
+if (!prof) { console.error("no demo_oak_owen — run `node scripts/seed-demo.mjs` first"); process.exit(1); }
 const uid = prof.id;
-const { data: proj } = await sb.from("garden_project").select("id, name").eq("owner_id", uid).eq("name", "Front yard").maybeSingle();
-if (!proj) { console.error("no Front yard project"); process.exit(1); }
+// Find the "Front yard" garden, then a project inside it (seed-demo makes one).
+const { data: garden } = await sb.from("garden").select("id").eq("owner_id", uid).eq("name", "Front yard").maybeSingle();
+if (!garden) { console.error("no 'Front yard' garden — run `node scripts/seed-demo.mjs` first"); process.exit(1); }
+const { data: projs } = await sb.from("garden_project").select("id").eq("garden_id", garden.id).order("created_at").limit(1);
+const proj = projs?.[0];
+if (!proj) { console.error("'Front yard' has no project"); process.exit(1); }
 
 // reuse an existing photo's bytes
 const { data: objs } = await sb.storage.from("photos").list(uid, { limit: 1 });

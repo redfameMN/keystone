@@ -96,10 +96,15 @@ for (const d of DEMO) {
   const { count } = await sb.from("post").select("id", { count: "exact", head: true }).eq("author_id", uid);
   if (count > 0) { console.log(d.username, "already seeded, skipping"); continue; }
 
+  // Current model (migration 0013+): a named garden (place: name, zone, ecoregion)
+  // holds one or more projects. Create the garden, then a project under it.
   let projectId = null;
   if (d.garden) {
+    const { data: g } = await sb.from("garden")
+      .upsert({ owner_id: uid, name: d.garden, zone: d.zone, ecoregion_id: d.region }, { onConflict: "owner_id,name" })
+      .select("id").single();
     const { data: gp } = await sb.from("garden_project")
-      .insert({ owner_id: uid, name: d.garden, project_type_id: d.project, zone: d.zone }).select("id").single();
+      .insert({ owner_id: uid, garden_id: g?.id ?? null, project_type_id: d.project }).select("id").single();
     projectId = gp?.id ?? null;
   }
 
