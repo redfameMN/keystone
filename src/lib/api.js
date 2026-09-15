@@ -22,6 +22,11 @@ const ago = (ts) => {
 
 const photoUrl = (path) => supabase.storage.from("photos").getPublicUrl(path).data.publicUrl;
 
+// A plant tag is a token: a bare genus ("Quercus") or a binomial ("Wisteria
+// sinensis"). The genus is always the first word.
+export const tokenGenus = (t) => (t || "").split(" ")[0];
+const isSpeciesToken = (t) => (t || "").includes(" ");
+
 // post_card row -> the post shape App.jsx renders.
 const toUiPost = (row) => ({
   id: row.id,
@@ -30,7 +35,7 @@ const toUiPost = (row) => ({
   region: row.ecoregion ?? "",
   project: row.project_type_id,
   stage: row.stage_id,
-  plants: (row.plants ?? []).map((p) => p.genus),
+  plants: (row.plants ?? []).map((p) => p.species || p.genus),
   caption: row.caption ?? "",
   likes: row.like_count,
   ago: ago(row.created_at),
@@ -145,41 +150,57 @@ const COVERED_STATES = new Set(["AL","AZ","AR","CA","CO","CT","DE","DC","FL","GA
 //     for non-US gardens (and any garden resolved to TDWG codes).
 //   - state (US 2-letter): the US tier (genus_native_state), scoped to covered
 //     states so a plant native in an uncovered state is never wrongly flagged.
-export async function fetchNativeStatus(genera, { state = "", regionCodes = [] } = {}) {
-  const list = [...new Set((genera ?? []).filter(Boolean))];
+export async function fetchNativeStatus(tokens, { state = "", regionCodes = [] } = {}) {
+  const list = [...new Set((tokens ?? []).filter(Boolean))];
   if (!list.length) return {};
+  const genera = [...new Set(list.map(tokenGenus))];
 
   if (regionCodes.length) {
-    const [gRes, rRes] = await Promise.all([
-      supabase.from("plant_genus").select("genus, native_us").in("genus", list),
-      supabase.from("genus_native_region").select("genus, region_code").in("genus", list),
+    const speciesTokens = list.filter(isSpeciesToken);
+    const [gRes, grRes, srRes] = await Promise.all([
+      supabase.from("plant_genus").select("genus, native_us").in("genus", genera),
+      supabase.from("genus_native_region").select("genus, region_code").in("genus", genera),
+      speciesTokens.length
+        ? supabase.from("species_native_region").select("species, region_code").in("species", speciesTokens)
+        : Promise.resolve({ data: [] }),
     ]);
     if (gRes.error) throw gRes.error;
-    const regionsByGenus = {};
-    for (const r of rRes.data ?? []) (regionsByGenus[r.genus] ??= new Set()).add(r.region_code);
-    const want = regionCodes;
+    const genusRegions = {}, speciesRegions = {};
+    for (const r of grRes.data ?? []) (genusRegions[r.genus] ??= new Set()).add(r.region_code);
+    for (const r of srRes.data ?? []) (speciesRegions[r.species] ??= new Set()).add(r.region_code);
+    const nativeUsOf = (g) => (gRes.data ?? []).find((x) => x.genus === g)?.native_us ?? null;
     const out = {};
-    for (const g of list) {
-      const set = regionsByGenus[g];
-      const nativeUs = (gRes.data ?? []).find((x) => x.genus === g)?.native_us ?? null;
-      out[g] = { nativeUs, inState: !set ? null : want.some((c) => set.has(c)) };
+    for (const token of list) {
+      const nativeUs = nativeUsOf(tokenGenus(token));
+      const spSet = isSpeciesToken(token) ? speciesRegions[token] : null;
+      if (spSet) {
+        // Species matched in WCVP → precise, species-level answer.
+        out[token] = { nativeUs, inState: regionCodes.some((c) => spSet.has(c)), species: true };
+      } else {
+        // Genus token, or a species name with no WCVP match → genus-level fallback.
+        const gSet = genusRegions[tokenGenus(token)];
+        out[token] = { nativeUs, inState: !gSet ? null : regionCodes.some((c) => gSet.has(c)), species: false };
+      }
     }
     return out;
   }
 
+  // No resolvable location: fall back to the US-state tier (genus-only), scoped to
+  // covered states so an unknown state never produces a warning.
   const covered = !!state && COVERED_STATES.has(state);
   const [gRes, nRes] = await Promise.all([
-    supabase.from("plant_genus").select("genus, native_us").in("genus", list),
-    covered ? supabase.from("genus_native_state").select("genus, state").in("genus", list)
+    supabase.from("plant_genus").select("genus, native_us").in("genus", genera),
+    covered ? supabase.from("genus_native_state").select("genus, state").in("genus", genera)
             : Promise.resolve({ data: [] }),
   ]);
   if (gRes.error) throw gRes.error;
   const tracked = {}, here = {};
   for (const r of nRes.data ?? []) { tracked[r.genus] = true; if (r.state === state) here[r.genus] = true; }
   const out = {};
-  for (const g of list) {
+  for (const token of list) {
+    const g = tokenGenus(token);
     const nativeUs = (gRes.data ?? []).find((x) => x.genus === g)?.native_us ?? null;
-    out[g] = { nativeUs, inState: !covered ? null : tracked[g] ? !!here[g] : null };
+    out[token] = { nativeUs, inState: !covered ? null : tracked[g] ? !!here[g] : null, species: false };
   }
   return out;
 }
@@ -216,7 +237,9 @@ export async function publishPost({ user, files, ecoregionId, projectId, project
     const { error: e } = await supabase.from("post_photo").insert(paths.map((p, i) => ({ post_id: post.id, storage_path: p, position: i })));
     if (e) throw e;
   }
-  const { error: tagErr } = await supabase.from("post_plant").insert(plants.map((genus) => ({ post_id: post.id, genus })));
+  const { error: tagErr } = await supabase.from("post_plant").insert(
+    plants.map((token) => ({ post_id: post.id, genus: tokenGenus(token), species: isSpeciesToken(token) ? token : "" }))
+  );
   if (tagErr) throw tagErr;
   // Posts start 'hidden'; the scan function is the only automated path to 'live'.
   // If the scan can't run, the post safely stays in review.
@@ -250,22 +273,28 @@ export async function setPinned(postId, on) {
   if (!data?.length) throw new Error("not your post");
 }
 
-// Plant search via the iNaturalist taxa API (public, no key). Returns plants only,
-// deduped by genus, for the composer's manual-tag search.
+// Plant search via the iNaturalist taxa API (public, no key). Plants only. Returns
+// tokens: species as a binomial ("Wisteria sinensis"), genera as a bare genus, so
+// the composer can tag either. A species token enables the species-level native
+// check; the binomial is matched to WCVP by name.
 export async function searchPlants(term) {
   const q = term?.trim();
   if (!q || q.length < 2) return [];
-  const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=genus,species,subspecies&per_page=12&locale=en`);
+  const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&rank=genus,species,subspecies&per_page=20&locale=en`);
   if (!r.ok) return [];
   const j = await r.json();
   const seen = new Set(); const out = [];
   for (const t of j.results ?? []) {
     if (t.iconic_taxon_name && t.iconic_taxon_name !== "Plantae") continue; // plants only
-    const genus = t.rank === "genus" ? t.name : String(t.name).split(" ")[0];
-    if (!genus || !/^[A-Z][a-z]+$/.test(genus) || seen.has(genus)) continue;
-    seen.add(genus);
-    out.push({ genus, name: t.name, common: t.preferred_common_name ?? null });
-    if (out.length >= 6) break;
+    const parts = String(t.name).trim().split(/\s+/);
+    const genus = parts[0];
+    if (!/^[A-Z][a-z]+$/.test(genus)) continue;
+    const token = t.rank === "genus" ? genus : `${genus} ${(parts[1] || "").toLowerCase()}`.trim();
+    if (!token || !token.includes(" ") && t.rank !== "genus") continue;
+    if (seen.has(token)) continue;
+    seen.add(token);
+    out.push({ token, genus, common: t.preferred_common_name ?? null, rank: t.rank });
+    if (out.length >= 8) break;
   }
   return out;
 }

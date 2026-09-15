@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, ECOREGION_IDS } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, ECOREGION_IDS } from "./lib/api.js";
 import { COUNTRIES, gardenRegions, gardenPlaceLabel } from "./data/tdwg.js";
 
 // Ecoregion id (stored on gardens/posts) -> display name, for keystone hints.
@@ -22,7 +22,7 @@ const REGION_NAME = Object.fromEntries(Object.entries(ECOREGION_IDS).map(([n, i]
 */
 
 function PlantPhoto({ plants, src }) {
-  const p = PALETTES[plants[0]] || ["#4b5b2a", "#7a8a4a", "#2e3a22"];
+  const p = PALETTES[tokenGenus(plants[0])] || ["#4b5b2a", "#7a8a4a", "#2e3a22"];
   if (src) return <img src={src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />;
   return (
     <div style={{ position: "absolute", inset: 0, background: `radial-gradient(120% 90% at 30% 25%, ${p[1]} 0%, ${p[0]} 45%, ${p[2]} 100%)` }}>
@@ -115,7 +115,7 @@ function PhotoStrip({ plants, srcs }) {
 }
 
 function Tag({ g, region, onClick, active, compact }) {
-  const ks = isKeystone(g, region);
+  const ks = isKeystone(tokenGenus(g), region);
   const dot = compact ? 6 : 8;
   return (
     <button onClick={onClick} style={{
@@ -361,8 +361,9 @@ export default function App() {
     }
   };
 
-  // Selected-plant helpers. draft.plants holds genus strings; plantMeta caches
-  // common names for genera outside the built-in vocabulary (from search / ID).
+  // Selected-plant helpers. draft.plants holds tag tokens (a bare genus like
+  // "Quercus", or a binomial like "Wisteria sinensis"); plantMeta caches common
+  // names for tokens outside the built-in vocabulary (from search / ID).
   const plantMeta = useRef({});
   const [plantQuery, setPlantQuery] = useState("");
   const [plantResults, setPlantResults] = useState([]);
@@ -372,9 +373,15 @@ export default function App() {
   const addPlant = async (g, common) => {
     if (!g) return;
     if (common) plantMeta.current[g] = common;
-    setDraft((d) => (d.plants.includes(g) ? d : { ...d, plants: [...d.plants, g] }));
+    // One tag per genus per post (post_plant PK). Picking a species replaces the
+    // genus's existing tag (genus → species, or one species → another).
+    const gen0 = tokenGenus(g);
+    setDraft((d) => d.plants.includes(g) ? d : { ...d, plants: [...d.plants.filter((t) => tokenGenus(t) !== gen0), g] });
     setPlantQuery(""); setPlantResults([]);
-    if (hasSupabase && !genus(g)) { try { await ensureGenus(g, common); } catch (e) { console.error("genus", e); } }
+    // Ensure the genus row exists (post_plant.genus FKs plant_genus), whether the
+    // tag is a bare genus or a "Genus species" token.
+    const gen = tokenGenus(g);
+    if (hasSupabase && !genus(gen)) { try { await ensureGenus(gen, genus(gen)?.common ?? null); } catch (e) { console.error("genus", e); } }
   };
   const removePlant = (g) => setDraft((d) => ({ ...d, plants: d.plants.filter((y) => y !== g) }));
 
@@ -388,7 +395,10 @@ export default function App() {
   };
 
   const acceptSuggestion = (s) => {
-    addPlant(s.name.split(" ")[0], s.common ?? genus(s.name.split(" ")[0])?.common);
+    // Keep the identifier's binomial when it gives one (enables the species-level
+    // native check); fall back to the genus otherwise.
+    const token = /^[A-Z][a-z]+ [a-z]+/.test(s.name) ? s.name.split(" ").slice(0, 2).join(" ") : s.name.split(" ")[0];
+    addPlant(token, s.common ?? genus(tokenGenus(token))?.common);
     setIdState((st) => ({ ...st, suggestions: st.suggestions.filter((x) => x.name !== s.name) }));
   };
 
@@ -533,7 +543,7 @@ export default function App() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {p.plants.map((g) => <Tag key={g} g={g} region={p.region} onClick={() => setFilter({ ...filter, plant: g })} />)}
                 </div>
-                {p.plants.some((g) => isKeystone(g, p.region)) && (
+                {p.plants.some((g) => isKeystone(tokenGenus(g), p.region)) && (
                   <div style={{ marginTop: 10, fontSize: 12, color: "#E7B93B" }}>● keystone genus for {p.region} — a top host plant for caterpillars, which feed most nesting birds</div>
                 )}
               </div>
@@ -977,9 +987,10 @@ export default function App() {
             {plantResults.length > 0 && (
               <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 8, background: "#1A2A20", border: "1px solid rgba(241,235,221,.25)", borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 20px rgba(0,0,0,.5)" }}>
                 {plantResults.map((r) => (
-                  <button key={r.genus} onClick={() => addPlant(r.genus, r.common)}
+                  <button key={r.token} onClick={() => addPlant(r.token, r.common)}
                     style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", background: "none", border: "none", borderBottom: "1px solid rgba(241,235,221,.1)", color: "#F1EBDD", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}>
-                    {r.common ? <span>{r.common} · <em style={{ opacity: 0.7, fontSize: 12 }}>{r.name}</em></span> : <em>{r.name}</em>}
+                    {r.common ? <span>{r.common} · <em style={{ opacity: 0.7, fontSize: 12 }}>{r.token}</em></span> : <em>{r.token}</em>}
+                    {r.rank === "genus" && <span style={{ opacity: 0.5, fontSize: 11 }}> · whole genus</span>}
                   </button>
                 ))}
               </div>
