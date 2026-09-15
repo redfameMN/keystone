@@ -58,6 +58,11 @@ const DEMO = [
   },
 ];
 
+// Optional arg: seed (or re-seed) just one account, e.g. `node scripts/seed-demo.mjs pinnacle_dryland`.
+const only = process.argv[2];
+const targets = only ? DEMO.filter((d) => d.username === only) : DEMO;
+if (only && !targets.length) { console.error(`no demo account named ${only}`); process.exit(1); }
+
 const pause = () => new Promise((r) => setTimeout(r, 1200)); // Commons rate limit
 
 async function fetchInfo(params, attempt = 1) {
@@ -81,7 +86,7 @@ const commonsImage = (term) =>
   fetchInfo(`generator=search&gsrsearch=${encodeURIComponent(`filetype:bitmap ${term}`)}&gsrnamespace=6&gsrlimit=1`);
 const commonsFile = (title) => fetchInfo(`titles=${encodeURIComponent(title)}`);
 
-for (const d of DEMO) {
+for (const d of targets) {
   const email = `${d.username}@example.com`;
   let uid;
   const { data: created } = await sb.auth.admin.createUser({ email, email_confirm: true });
