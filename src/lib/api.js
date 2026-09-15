@@ -114,7 +114,7 @@ export async function setFollow(followedId, uid, on) {
 
 export async function fetchMyGardens(uid) {
   const [gRes, pRes] = await Promise.all([
-    supabase.from("garden").select("id, name, zone, ecoregion_id, state").eq("owner_id", uid).order("created_at"),
+    supabase.from("garden").select("id, name, zone, ecoregion_id, state, country").eq("owner_id", uid).order("created_at"),
     supabase.from("garden_project").select("id, garden_id, name, project_type_id").eq("owner_id", uid).order("created_at"),
   ]);
   if (gRes.error) throw gRes.error;
@@ -123,10 +123,10 @@ export async function fetchMyGardens(uid) {
   return (gRes.data ?? []).map((g) => ({ ...g, projects: projByGarden[g.id] ?? [] }));
 }
 
-export async function createGarden(uid, name, zone, ecoregionId, state) {
+export async function createGarden(uid, name, zone, ecoregionId, state, country) {
   const { data, error } = await supabase.from("garden")
-    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null, ecoregion_id: ecoregionId ?? null, state: state || null })
-    .select("id, name, zone, ecoregion_id, state").single();
+    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null, ecoregion_id: ecoregionId ?? null, state: state || null, country: country || null })
+    .select("id, name, zone, ecoregion_id, state, country").single();
   if (error) throw error;
   return { ...data, projects: [] };
 }
@@ -137,13 +137,36 @@ export async function createGarden(uid, name, zone, ecoregionId, state) {
 // native there (e.g. willow/birch in Alaska) isn't. Grow this as data is added.
 const COVERED_STATES = new Set(["AL","AZ","AR","CA","CO","CT","DE","DC","FL","GA","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"]);
 
-// Advisory native status for a set of genera in a US state (2-letter). Returns
+// Advisory native status for a set of genera at a location. Returns
 // { [genus]: { nativeUs, inState } }: nativeUs is true/false/null (null=unknown);
 // inState is true/false/null (null = no confident data → stay silent, never warn).
-// Trust rule: we only ever surface a warning when we're confident.
-export async function fetchNativeStatus(genera, state) {
+// Two tiers, same trust rule (only warn when confident):
+//   - regionCodes (TDWG): the global tier (genus_native_region, Kew WCVP) — used
+//     for non-US gardens (and any garden resolved to TDWG codes).
+//   - state (US 2-letter): the US tier (genus_native_state), scoped to covered
+//     states so a plant native in an uncovered state is never wrongly flagged.
+export async function fetchNativeStatus(genera, { state = "", regionCodes = [] } = {}) {
   const list = [...new Set((genera ?? []).filter(Boolean))];
   if (!list.length) return {};
+
+  if (regionCodes.length) {
+    const [gRes, rRes] = await Promise.all([
+      supabase.from("plant_genus").select("genus, native_us").in("genus", list),
+      supabase.from("genus_native_region").select("genus, region_code").in("genus", list),
+    ]);
+    if (gRes.error) throw gRes.error;
+    const regionsByGenus = {};
+    for (const r of rRes.data ?? []) (regionsByGenus[r.genus] ??= new Set()).add(r.region_code);
+    const want = regionCodes;
+    const out = {};
+    for (const g of list) {
+      const set = regionsByGenus[g];
+      const nativeUs = (gRes.data ?? []).find((x) => x.genus === g)?.native_us ?? null;
+      out[g] = { nativeUs, inState: !set ? null : want.some((c) => set.has(c)) };
+    }
+    return out;
+  }
+
   const covered = !!state && COVERED_STATES.has(state);
   const [gRes, nRes] = await Promise.all([
     supabase.from("plant_genus").select("genus, native_us").in("genus", list),
