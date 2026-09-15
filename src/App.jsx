@@ -41,11 +41,18 @@ const US_STATES = [["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arka
 
 // Brand wordmark: milkweed seed as the i, stained-glass monarch as the w.
 // Dark-surface cut (cream borders); glyphs designed at 44px, scaled by `size`.
-function Wordmark({ size = 22 }) {
+function Wordmark({ size = 22, plate = true }) {
   const s = size / 44;
   const word = { fontSize: size, lineHeight: 1, letterSpacing: -1, fontStyle: "italic" };
+  const plateStyle = plate ? {
+    padding: `${Math.round(size * 0.28)}px ${Math.round(size * 0.5)}px`,
+    borderRadius: Math.round(size * 0.5),
+    background: "linear-gradient(135deg, #1E3A29 0%, #14261B 100%)",
+    border: "1px solid rgba(231,185,59,.3)",
+    boxShadow: "0 2px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(241,235,221,.06)",
+  } : {};
   return (
-    <div style={{ display: "flex", alignItems: "flex-end" }} aria-label="Milkweed">
+    <div style={{ display: "inline-flex", alignItems: "flex-end", ...plateStyle }} aria-label="Milkweed">
       <span style={word}>M</span>
       <svg width={15 * s} height={34 * s} viewBox="0 0 15 34" style={{ transform: "skewX(-8deg)", margin: "0 0 1px 1px" }}>
         <g stroke="#E7B93B" strokeWidth="1.4" strokeLinecap="round">
