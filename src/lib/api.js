@@ -114,7 +114,7 @@ export async function setFollow(followedId, uid, on) {
 
 export async function fetchMyGardens(uid) {
   const [gRes, pRes] = await Promise.all([
-    supabase.from("garden").select("id, name, zone").eq("owner_id", uid).order("created_at"),
+    supabase.from("garden").select("id, name, zone, ecoregion_id").eq("owner_id", uid).order("created_at"),
     supabase.from("garden_project").select("id, garden_id, name, project_type_id").eq("owner_id", uid).order("created_at"),
   ]);
   if (gRes.error) throw gRes.error;
@@ -123,10 +123,10 @@ export async function fetchMyGardens(uid) {
   return (gRes.data ?? []).map((g) => ({ ...g, projects: projByGarden[g.id] ?? [] }));
 }
 
-export async function createGarden(uid, name, zone) {
+export async function createGarden(uid, name, zone, ecoregionId) {
   const { data, error } = await supabase.from("garden")
-    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null })
-    .select("id, name, zone").single();
+    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null, ecoregion_id: ecoregionId ?? null })
+    .select("id, name, zone, ecoregion_id").single();
   if (error) throw error;
   return { ...data, projects: [] };
 }
@@ -139,7 +139,7 @@ export async function addProject(uid, gardenId, projectTypeId, name) {
   return data;
 }
 
-export async function publishPost({ user, files, region, projectId, projectTypeId, stage, plants, caption }) {
+export async function publishPost({ user, files, ecoregionId, projectId, projectTypeId, stage, plants, caption }) {
   const paths = [];
   for (const file of files ?? []) {
     const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
@@ -154,7 +154,7 @@ export async function publishPost({ user, files, region, projectId, projectTypeI
     project_type_id: projectTypeId ?? null,
     stage_id: stage,
     caption: caption || null,
-    ecoregion_id: ECOREGION_IDS[region] ?? null,
+    ecoregion_id: ecoregionId ?? null,
   }).select("id").single();
   if (error) throw error;
   if (paths.length) {

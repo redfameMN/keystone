@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, ECOREGION_IDS } from "./lib/api.js";
+
+// Ecoregion id (stored on gardens/posts) -> display name, for keystone hints.
+const REGION_NAME = Object.fromEntries(Object.entries(ECOREGION_IDS).map(([n, i]) => [i, n]));
 
 /*
   Milkweed — a public, gardens-only photo feed.
@@ -168,7 +171,7 @@ export default function App() {
   const [setupGarden, setSetupGarden] = useState(null); // {name, zone} on profile
   const [setupProjectFor, setSetupProjectFor] = useState(null); // gardenId adding a project on profile
   const [setupProject, setSetupProject] = useState({ type: "", name: "" });
-  const [draft, setDraft] = useState({ region: "Eastern Temperate Forests", stage: null, plants: [], caption: "", srcs: [], gardenId: "", projectId: "" });
+  const [draft, setDraft] = useState({ stage: null, plants: [], caption: "", srcs: [], gardenId: "", projectId: "" });
   const refreshGardens = (uid) => fetchMyGardens(uid).then(setMyGardens).catch((e) => console.error("gardens", e));
   const fileRef = useRef();
   const scrollToRef = useRef(null); // post id to jump to when returning to the feed
@@ -278,6 +281,8 @@ export default function App() {
     for (const g of myGardens) { const p = g.projects.find((x) => x.id === draft.projectId); if (p) return p; }
     return null;
   };
+  // The composer's region for keystone hints comes from the chosen garden.
+  const composerRegion = REGION_NAME[myGardens.find((x) => x.id === draft.gardenId)?.ecoregion_id] ?? "";
 
   const publish = async () => {
     if (!draft.plants.length || publishing) return;
@@ -285,7 +290,8 @@ export default function App() {
       setPublishing(true);
       try {
         const proj = selectedProject();
-        const res = await publishPost({ user, files: fileObjs.current, region: draft.region, projectId: proj?.id ?? null, projectTypeId: proj?.project_type_id ?? null, stage: draft.stage, plants: draft.plants, caption: draft.caption });
+        const g = myGardens.find((x) => x.id === draft.gardenId);
+        const res = await publishPost({ user, files: fileObjs.current, ecoregionId: g?.ecoregion_id ?? null, projectId: proj?.id ?? null, projectTypeId: proj?.project_type_id ?? null, stage: draft.stage, plants: draft.plants, caption: draft.caption });
         setPosts(await fetchPosts());
         if (res.status === "rejected") setNotice("That photo can't be posted here — it didn't pass screening.");
         else if (res.status !== "live") setNotice("Your garden is in review — it'll appear in the feed once approved.");
@@ -300,10 +306,10 @@ export default function App() {
     } else {
       const proj = selectedProject();
       const g = myGardens.find((x) => x.id === draft.gardenId);
-      setPosts((ps) => [{ id: Date.now(), user: user.name, region: draft.region, project: proj?.project_type_id, stage: draft.stage, plants: draft.plants, caption: draft.caption, likes: 0, ago: "now", srcs: draft.srcs, garden: g?.name || null, zone: g?.zone || null, projectId: proj?.id, projectName: proj?.name }, ...ps]);
+      setPosts((ps) => [{ id: Date.now(), user: user.name, region: REGION_NAME[g?.ecoregion_id] ?? "", project: proj?.project_type_id, stage: draft.stage, plants: draft.plants, caption: draft.caption, likes: 0, ago: "now", srcs: draft.srcs, garden: g?.name || null, zone: g?.zone || null, projectId: proj?.id, projectName: proj?.name }, ...ps]);
     }
     fileObjs.current = [];
-    setDraft({ region: draft.region, stage: null, plants: [], caption: "", srcs: [], gardenId: draft.gardenId, projectId: "" });
+    setDraft({ stage: null, plants: [], caption: "", srcs: [], gardenId: draft.gardenId, projectId: "" });
     setView("feed");
   };
 
@@ -583,16 +589,22 @@ export default function App() {
                 </div>
               ))}
               {setupGarden ? (
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <input placeholder="Garden name" value={setupGarden.name} onChange={(e) => setSetupGarden({ ...setupGarden, name: e.target.value })} style={{ ...input, marginTop: 0, flex: 2 }} />
-                  <select value={setupGarden.zone} onChange={(e) => setSetupGarden({ ...setupGarden, zone: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
-                    <option value="">Zone</option>{ZONES.map((z) => <option key={z}>{z}</option>)}
+                <div style={{ marginTop: 6 }}>
+                  <input placeholder="Garden name (e.g. Front yard)" value={setupGarden.name} onChange={(e) => setSetupGarden({ ...setupGarden, name: e.target.value })} style={{ ...input, marginTop: 0 }} />
+                  <select value={setupGarden.region} onChange={(e) => setSetupGarden({ ...setupGarden, region: e.target.value })} style={{ ...input, marginTop: 8 }}>
+                    <option value="">Ecoregion…</option>{ECOREGIONS.map((r) => <option key={r}>{r}</option>)}
                   </select>
-                  <button style={{ ...btn(true), opacity: setupGarden.name.trim().length > 1 ? 1 : 0.4 }} disabled={setupGarden.name.trim().length < 2}
-                    onClick={async () => { try { await createGarden(user.id, setupGarden.name, setupGarden.zone || null); await refreshGardens(user.id); setSetupGarden(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create</button>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <select value={setupGarden.zone} onChange={(e) => setSetupGarden({ ...setupGarden, zone: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
+                      <option value="">Zone (optional)</option>{ZONES.map((z) => <option key={z}>{z}</option>)}
+                    </select>
+                    <button style={{ ...btn(true), opacity: setupGarden.name.trim().length > 1 && setupGarden.region ? 1 : 0.4 }} disabled={setupGarden.name.trim().length < 2 || !setupGarden.region}
+                      onClick={async () => { try { await createGarden(user.id, setupGarden.name, setupGarden.zone || null, ECOREGION_IDS[setupGarden.region]); await refreshGardens(user.id); setSetupGarden(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create</button>
+                    <button style={btn(false)} onClick={() => setSetupGarden(null)}>Cancel</button>
+                  </div>
                 </div>
               ) : (
-                <button onClick={() => setSetupGarden({ name: "", zone: "" })} style={{ ...btn(false), marginTop: 4 }}>＋ New garden</button>
+                <button onClick={() => setSetupGarden({ name: "", zone: "", region: "" })} style={{ ...btn(false), marginTop: 4 }}>＋ New garden</button>
               )}
             </div>
           )}
@@ -802,7 +814,7 @@ export default function App() {
                   <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>Tap to confirm — nothing is tagged until you do</div>
                   {idState.suggestions.map((s) => {
                     const g = s.name.split(" ")[0];
-                    const ks = isKeystone(g, draft.region);
+                    const ks = isKeystone(g, composerRegion);
                     const common = s.common ?? genus(g)?.common; // species name from the identifier, else our genus vocabulary
                     return (
                       <button key={s.name} onClick={() => acceptSuggestion(s)} style={{ ...btn(false), display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6, borderRadius: 10, borderColor: ks ? "#E7B93B" : undefined }}>
@@ -823,19 +835,24 @@ export default function App() {
 
           <label style={lbl}>Which garden?</label>
           <select value={newGardenForm ? "__new" : draft.gardenId}
-            onChange={(e) => { const v = e.target.value; if (v === "__new") setNewGardenForm({ name: "", zone: "" }); else { setNewGardenForm(null); setDraft({ ...draft, gardenId: v, projectId: "" }); } }} style={input}>
+            onChange={(e) => { const v = e.target.value; if (v === "__new") setNewGardenForm({ name: "", zone: "", region: "" }); else { setNewGardenForm(null); setDraft({ ...draft, gardenId: v, projectId: "" }); } }} style={input}>
             <option value="">No garden — just a post</option>
             {myGardens.map((g) => <option key={g.id} value={g.id}>{g.name}{g.zone ? ` · zone ${g.zone}` : ""}</option>)}
             <option value="__new">＋ New garden…</option>
           </select>
           {newGardenForm && (
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <input placeholder="Garden name" value={newGardenForm.name} onChange={(e) => setNewGardenForm({ ...newGardenForm, name: e.target.value })} style={{ ...input, marginTop: 0, flex: 2 }} />
-              <select value={newGardenForm.zone} onChange={(e) => setNewGardenForm({ ...newGardenForm, zone: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
-                <option value="">Zone</option>{ZONES.map((z) => <option key={z}>{z}</option>)}
+            <div style={{ marginTop: 8 }}>
+              <input placeholder="Garden name (e.g. Front yard)" value={newGardenForm.name} onChange={(e) => setNewGardenForm({ ...newGardenForm, name: e.target.value })} style={{ ...input, marginTop: 0 }} />
+              <select value={newGardenForm.region} onChange={(e) => setNewGardenForm({ ...newGardenForm, region: e.target.value })} style={{ ...input, marginTop: 8 }}>
+                <option value="">Ecoregion…</option>{ECOREGIONS.map((r) => <option key={r}>{r}</option>)}
               </select>
-              <button style={{ ...btn(true), opacity: newGardenForm.name.trim().length > 1 ? 1 : 0.4 }} disabled={newGardenForm.name.trim().length < 2}
-                onClick={async () => { try { const g = await createGarden(user.id, newGardenForm.name, newGardenForm.zone || null); await refreshGardens(user.id); setDraft({ ...draft, gardenId: g.id, projectId: "" }); setNewGardenForm(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <select value={newGardenForm.zone} onChange={(e) => setNewGardenForm({ ...newGardenForm, zone: e.target.value })} style={{ ...input, marginTop: 0, flex: 1 }}>
+                  <option value="">Zone (optional)</option>{ZONES.map((z) => <option key={z}>{z}</option>)}
+                </select>
+                <button style={{ ...btn(true), opacity: newGardenForm.name.trim().length > 1 && newGardenForm.region ? 1 : 0.4 }} disabled={newGardenForm.name.trim().length < 2 || !newGardenForm.region}
+                  onClick={async () => { try { const g = await createGarden(user.id, newGardenForm.name, newGardenForm.zone || null, ECOREGION_IDS[newGardenForm.region]); await refreshGardens(user.id); setDraft({ ...draft, gardenId: g.id, projectId: "" }); setNewGardenForm(null); } catch (e) { setNotice(e.message ?? "Couldn't create garden"); } }}>Create garden</button>
+              </div>
             </div>
           )}
 
@@ -870,11 +887,7 @@ export default function App() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {STAGES.map((st) => <button key={st.id} onClick={() => setDraft({ ...draft, stage: draft.stage === st.id ? null : st.id })} style={pickDark(draft.stage === st.id)}>{st.name}</button>)}
           </div>
-
-          <label style={lbl}>Ecoregion</label>
-          <select value={draft.region} onChange={(e) => setDraft({ ...draft, region: e.target.value })} style={input}>
-            {ECOREGIONS.map((r) => <option key={r}>{r}</option>)}
-          </select>
+          {draft.gardenId && composerRegion && <div style={{ fontSize: 12, opacity: 0.55, marginTop: 8 }}>Region: {composerRegion}{myGardens.find((x) => x.id === draft.gardenId)?.zone ? ` · zone ${myGardens.find((x) => x.id === draft.gardenId).zone}` : ""} (from your garden)</div>}
 
           <label style={lbl}>What's growing in it? (required)</label>
           {draft.plants.length > 0 && (
@@ -904,7 +917,7 @@ export default function App() {
           <div style={{ fontSize: 12, opacity: 0.6, margin: "10px 0 6px" }}>Or tap a common native:</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {GENERA.map((x) => (
-              <Tag key={x.g} g={x.g} region={draft.region} active={draft.plants.includes(x.g)} compact
+              <Tag key={x.g} g={x.g} region={composerRegion} active={draft.plants.includes(x.g)} compact
                 onClick={() => (draft.plants.includes(x.g) ? removePlant(x.g) : addPlant(x.g, genus(x.g)?.common))} />
             ))}
           </div>
