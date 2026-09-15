@@ -522,26 +522,57 @@ export default function App() {
             </button>
           )}
           {(() => {
-            const gardens = [...new Map(profile.posts.filter((p) => p.garden).map((p) => [p.garden, p.zone])).entries()];
-            return gardens.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                {gardens.map(([g, z]) => <span key={g} style={{ ...chip, cursor: "default" }}><em>{g}</em>{z ? ` · zone ${z}` : ""}</span>)}
-              </div>
-            );
-          })()}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
-            {profile.posts.map((p) => (
-              <button key={p.id} onClick={() => { scrollToRef.current = p.id; setFilter({ ...filter, author: profile.username }); setView("feed"); }}
-                style={{ position: "relative", aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "none", padding: 0, cursor: "pointer", background: "#1A2A20" }}>
+            // Group posts into named gardens, each ordered as a journey (by stage),
+            // so a garden reads before → prep → year 1 → … → established. Posts with
+            // no garden name fall into a plain grid below.
+            const stageIdx = (s) => { const i = STAGES.findIndex((x) => x.id === s); return i < 0 ? 99 : i; };
+            const order = []; const byName = {}; const loose = [];
+            for (const p of profile.posts) {
+              if (p.garden) {
+                if (!byName[p.garden]) { byName[p.garden] = { name: p.garden, zone: p.zone, posts: [] }; order.push(byName[p.garden]); }
+                byName[p.garden].posts.push(p);
+              } else loose.push(p);
+            }
+            order.forEach((g) => g.posts.sort((a, b) => stageIdx(a.stage) - stageIdx(b.stage) || (a.id > b.id ? 1 : -1)));
+
+            const openPost = (p) => { scrollToRef.current = p.id; setFilter({ ...filter, author: profile.username }); setView("feed"); };
+            const thumb = (p, opts = {}) => (
+              <button key={p.id} onClick={() => openPost(p)}
+                style={{ position: "relative", width: opts.w ?? "100%", flexShrink: 0, aspectRatio: "3/4", borderRadius: 10, overflow: "hidden", border: "none", padding: 0, cursor: "pointer", background: "#1A2A20" }}>
                 {p.srcs?.[0]
                   ? <img src={p.srcs[0]} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                   : <PlantPhoto plants={p.plants} />}
-                {p.pinned && <span style={{ position: "absolute", left: 6, top: 6, padding: "2px 7px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 10 }}>📌 Pinned</span>}
-                {p.stage && <span style={{ position: "absolute", left: 6, bottom: 6, padding: "2px 7px", borderRadius: 999, background: "rgba(16,26,20,.7)", color: "#F1EBDD", fontSize: 10 }}>{stage(p.stage)?.name}</span>}
+                {p.pinned && <span style={{ position: "absolute", left: 5, top: 5, padding: "2px 6px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 10 }}>📌</span>}
+                {p.stage && <span style={{ position: "absolute", left: 5, bottom: 5, padding: "2px 6px", borderRadius: 999, background: "rgba(16,26,20,.78)", color: "#F1EBDD", fontSize: 10 }}>{stage(p.stage)?.name}</span>}
               </button>
-            ))}
-          </div>
-          {profile.posts.length === 0 && <div style={{ opacity: 0.6, fontSize: 14 }}>No gardens posted yet.</div>}
+            );
+
+            return (
+              <>
+                {order.map((g) => (
+                  <div key={g.name} style={{ marginBottom: 22 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 17, fontStyle: "italic" }}>{g.name}</span>
+                      {g.zone && <span style={{ fontSize: 12, opacity: 0.6 }}>zone {g.zone}</span>}
+                      <span style={{ fontSize: 12, opacity: 0.5 }}>· {g.posts.length} in the journey</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                      {g.posts.map((p) => thumb(p, { w: 116 }))}
+                    </div>
+                  </div>
+                ))}
+                {loose.length > 0 && (
+                  <>
+                    {order.length > 0 && <div style={{ fontSize: 13, opacity: 0.6, margin: "6px 0 8px" }}>Other posts</div>}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                      {loose.map((p) => thumb(p))}
+                    </div>
+                  </>
+                )}
+                {profile.posts.length === 0 && <div style={{ opacity: 0.6, fontSize: 14 }}>No gardens posted yet.</div>}
+              </>
+            );
+          })()}
         </div>
       )}
 
