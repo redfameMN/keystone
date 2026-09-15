@@ -161,6 +161,7 @@ export default function App() {
   const [reportFor, setReportFor] = useState(null);
   const [queue, setQueue] = useState([]);
   const [incidents, setIncidents] = useState([]);
+  const [capExpanded, setCapExpanded] = useState({}); // post id -> caption expanded
   const [draft, setDraft] = useState({ region: "Eastern Temperate Forests", project: null, stage: null, plants: [], caption: "", srcs: [], gardenName: "", zone: "" });
   const fileRef = useRef();
   const scrollToRef = useRef(null); // post id to jump to when returning to the feed
@@ -469,7 +470,24 @@ export default function App() {
                     {p.stage && <button onClick={() => setFilter({ ...filter, stage: p.stage })} style={chip}>{stage(p.stage).name}</button>}
                   </div>
                 )}
-                <p style={{ fontSize: 17, lineHeight: 1.35, margin: "0 0 12px" }}>{p.caption}</p>
+                {p.caption && (() => {
+                  const open = capExpanded[p.id];
+                  const longCap = p.caption.length > 90;
+                  return (
+                    <div style={{ margin: "0 0 12px" }}>
+                      <p style={{ fontSize: 16, lineHeight: 1.35, margin: 0, textShadow: "0 1px 3px rgba(0,0,0,.5)",
+                        ...(open || !longCap ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) }}>
+                        {p.caption}
+                      </p>
+                      {longCap && (
+                        <button onClick={() => setCapExpanded((c) => ({ ...c, [p.id]: !open }))}
+                          style={{ background: "none", border: "none", padding: 0, marginTop: 2, color: "#E7B93B", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}>
+                          {open ? "Show less" : "Show more"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {p.plants.map((g) => <Tag key={g} g={g} region={p.region} onClick={() => setFilter({ ...filter, plant: g })} />)}
                 </div>
