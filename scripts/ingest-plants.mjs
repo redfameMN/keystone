@@ -5,6 +5,7 @@
 //   1. NWF keystone plant guides → data/nwf-keystone.json (extracted from the per-ecoregion PDFs).
 //   2. iNaturalist taxa API → genus family/common name, species under each genus (North America).
 //   3. USDA PLANTS / BONAP state distribution → species_native_state. Bulk download; see docs/data-sources.md.
+import "./_env.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { readFile } from "node:fs/promises";
 

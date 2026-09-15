@@ -9,6 +9,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Idempotent: skips an account
 // that already has posts. Run: npm run seed:demo
+import "./_env.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 

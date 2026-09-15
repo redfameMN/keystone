@@ -1,5 +1,6 @@
 // Give demo_oak_owen's "Front yard" a multi-stage journey so the profile timeline
 // has something to show. Reuses an existing photo; each post runs through scan-post.
+import "./_env.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 const url = process.env.SUPABASE_URL, service = process.env.SUPABASE_SERVICE_ROLE_KEY;

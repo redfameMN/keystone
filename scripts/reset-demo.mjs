@@ -1,5 +1,6 @@
 // Delete a demo account's posts and storage objects so seed-demo.mjs can re-seed it.
-// Usage: node scripts/reset-demo.mjs <username>   (env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+// Usage: node scripts/reset-demo.mjs <username>   (secrets from .env.scripts)
+import "./_env.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const username = process.argv[2];

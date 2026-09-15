@@ -2,5 +2,6 @@ node_modules
 dist
 .env
 .env.local
+.env.scripts
 .supabase-db-password
 supabase/.temp
