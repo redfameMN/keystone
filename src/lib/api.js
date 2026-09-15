@@ -42,6 +42,7 @@ const toUiPost = (row) => ({
   srcs: (row.photos ?? []).map(photoUrl),
   garden: row.garden_name,
   zone: row.zone,
+  country: row.country ?? null,
   projectId: row.project_id,
   projectName: row.project_name,
   pinned: row.pinned ?? false,
