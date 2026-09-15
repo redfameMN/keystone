@@ -285,7 +285,8 @@ export default function App() {
   const composerRegion = REGION_NAME[myGardens.find((x) => x.id === draft.gardenId)?.ecoregion_id] ?? "";
 
   const publish = async () => {
-    if (!draft.plants.length || publishing) return;
+    // A photo is the whole point — no photo, no post.
+    if (!draft.srcs.length || !draft.plants.length || publishing) return;
     if (hasSupabase && user?.id) {
       setPublishing(true);
       try {
@@ -928,7 +929,7 @@ export default function App() {
         {/* Docked action bar — always visible, no scrolling needed */}
         <div style={{ flexShrink: 0, display: "flex", gap: 10, padding: "12px 16px calc(12px + env(safe-area-inset-bottom))", background: "#101A14", borderTop: "1px solid rgba(241,235,221,.12)" }}>
           <button onClick={() => setView("feed")} style={btn(false)}>Cancel</button>
-          <button onClick={publish} disabled={!draft.plants.length || publishing} style={{ ...btn(true), flex: 1, opacity: draft.plants.length && !publishing ? 1 : 0.4 }}>{publishing ? "Publishing…" : `Publish${draft.plants.length ? "" : " · pick a plant"}`}</button>
+          <button onClick={publish} disabled={!draft.srcs.length || !draft.plants.length || publishing} style={{ ...btn(true), flex: 1, opacity: draft.srcs.length && draft.plants.length && !publishing ? 1 : 0.4 }}>{publishing ? "Publishing…" : `Publish${!draft.srcs.length ? " · add a photo" : !draft.plants.length ? " · pick a plant" : ""}`}</button>
         </div>
         </div>
       )}

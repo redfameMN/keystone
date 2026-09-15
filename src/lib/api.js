@@ -140,6 +140,8 @@ export async function addProject(uid, gardenId, projectTypeId, name) {
 }
 
 export async function publishPost({ user, files, ecoregionId, projectId, projectTypeId, stage, plants, caption }) {
+  // Milkweed is a photo feed — a post with no photo is not allowed.
+  if (!files?.length) throw new Error("Add at least one photo of your garden.");
   const paths = [];
   for (const file of files ?? []) {
     const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
