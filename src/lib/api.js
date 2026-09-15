@@ -37,6 +37,8 @@ const toUiPost = (row) => ({
   srcs: (row.photos ?? []).map(photoUrl),
   garden: row.garden_name,
   zone: row.zone,
+  projectId: row.project_id,
+  projectName: row.project_name,
   pinned: row.pinned ?? false,
 });
 
@@ -108,24 +110,36 @@ export async function setFollow(followedId, uid, on) {
   if (error) throw error;
 }
 
-export async function publishPost({ user, files, region, project, stage, plants, caption, gardenName, zone }) {
-  // A named garden (or one with a zone) becomes a garden_project row, reused by
-  // owner+name so repeat posts build the garden's timeline.
-  let projectId = null;
-  if (gardenName || zone) {
-    const name = (gardenName || "My garden").trim().slice(0, 80);
-    const { data: existing } = await supabase.from("garden_project").select("id").eq("owner_id", user.id).eq("name", name).maybeSingle();
-    if (existing) {
-      projectId = existing.id;
-      if (zone) await supabase.from("garden_project").update({ zone }).eq("id", projectId);
-    } else {
-      const { data: gp, error: gpErr } = await supabase.from("garden_project")
-        .insert({ owner_id: user.id, name, project_type_id: project, zone: zone || null })
-        .select("id").single();
-      if (gpErr) throw gpErr;
-      projectId = gp.id;
-    }
-  }
+// --- Gardens & projects (a garden holds one or more projects) ---
+
+export async function fetchMyGardens(uid) {
+  const [gRes, pRes] = await Promise.all([
+    supabase.from("garden").select("id, name, zone").eq("owner_id", uid).order("created_at"),
+    supabase.from("garden_project").select("id, garden_id, name, project_type_id").eq("owner_id", uid).order("created_at"),
+  ]);
+  if (gRes.error) throw gRes.error;
+  const projByGarden = {};
+  for (const p of pRes.data ?? []) (projByGarden[p.garden_id] ??= []).push(p);
+  return (gRes.data ?? []).map((g) => ({ ...g, projects: projByGarden[g.id] ?? [] }));
+}
+
+export async function createGarden(uid, name, zone) {
+  const { data, error } = await supabase.from("garden")
+    .insert({ owner_id: uid, name: name.trim().slice(0, 80), zone: zone || null })
+    .select("id, name, zone").single();
+  if (error) throw error;
+  return { ...data, projects: [] };
+}
+
+export async function addProject(uid, gardenId, projectTypeId, name) {
+  const { data, error } = await supabase.from("garden_project")
+    .insert({ owner_id: uid, garden_id: gardenId, project_type_id: projectTypeId, name: name?.trim().slice(0, 80) || null })
+    .select("id, garden_id, name, project_type_id").single();
+  if (error) throw error;
+  return data;
+}
+
+export async function publishPost({ user, files, region, projectId, projectTypeId, stage, plants, caption }) {
   const paths = [];
   for (const file of files ?? []) {
     const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
@@ -136,8 +150,8 @@ export async function publishPost({ user, files, region, project, stage, plants,
   }
   const { data: post, error } = await supabase.from("post").insert({
     author_id: user.id,
-    project_id: projectId,
-    project_type_id: project,
+    project_id: projectId ?? null,
+    project_type_id: projectTypeId ?? null,
     stage_id: stage,
     caption: caption || null,
     ecoregion_id: ECOREGION_IDS[region] ?? null,
