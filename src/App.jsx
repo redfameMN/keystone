@@ -405,7 +405,7 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setFilter({ plant: null, project: null, stage: null, author: null })} style={{ ...btn(false), color: "#101A14", borderColor: "rgba(16,26,20,.3)" }}>Clear</button>
+              <button onClick={() => setFilter({ plant: null, project: null, stage: null, author: null })} style={{ ...btn(false), background: "transparent", backdropFilter: "none", boxShadow: "none", color: "#101A14", borderColor: "rgba(16,26,20,.3)" }}>Clear</button>
               <button onClick={() => setFiltersOpen(false)} style={{ ...btn(true), flex: 1 }}>Show {visible.length} garden{visible.length === 1 ? "" : "s"}</button>
             </div>
           </div>
@@ -904,10 +904,21 @@ function AuthForm({ onDone }) {
   );
 }
 
-const btn = (primary) => ({ padding: "8px 14px", borderRadius: 999, border: primary ? "none" : "1.5px solid rgba(241,235,221,.4)", background: primary ? "#E7B93B" : "transparent", color: primary ? "#101A14" : "#F1EBDD", fontFamily: "inherit", fontSize: 14, cursor: "pointer" });
-const rail = { background: "none", border: "none", color: "#F1EBDD", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", fontFamily: "inherit" };
+// Branded controls: a deep-green "glass" pill with a monarch-gold hairline and a
+// soft lift, so buttons read on any photo instead of dissolving into it. Primary
+// is the solid gold pill. Both use the serif brand face (inherited).
+const btn = (primary) => ({
+  padding: "8px 15px", borderRadius: 999,
+  border: primary ? "1px solid #E7B93B" : "1px solid rgba(231,185,59,.55)",
+  background: primary ? "#E7B93B" : "rgba(16,26,20,.62)",
+  color: primary ? "#101A14" : "#F1EBDD",
+  fontFamily: "inherit", fontSize: 14, letterSpacing: 0.2, cursor: "pointer",
+  backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+  boxShadow: primary ? "0 2px 12px rgba(231,185,59,.4)" : "0 2px 10px rgba(0,0,0,.45)",
+});
+const rail = { background: "none", border: "none", color: "#F1EBDD", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", fontFamily: "inherit", filter: "drop-shadow(0 2px 4px rgba(0,0,0,.75))" };
 const lbl = { display: "block", fontSize: 13, opacity: 0.7, margin: "18px 0 6px" };
 const input = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(241,235,221,.25)", background: "#1A2A20", color: "#F1EBDD", fontFamily: "inherit", fontSize: 15, marginTop: 8, boxSizing: "border-box" };
-const chip = { padding: "5px 10px", borderRadius: 999, border: "1px solid rgba(241,235,221,.35)", background: "rgba(16,26,20,.55)", color: "#F1EBDD", fontFamily: "inherit", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", backdropFilter: "blur(6px)" };
+const chip = { padding: "5px 11px", borderRadius: 999, border: "1px solid rgba(231,185,59,.5)", background: "rgba(16,26,20,.62)", color: "#F1EBDD", fontFamily: "inherit", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", boxShadow: "0 2px 8px rgba(0,0,0,.4)" };
 const pick = (on) => ({ padding: "8px 12px", borderRadius: 10, border: `1.5px solid ${on ? "#101A14" : "rgba(16,26,20,.25)"}`, background: on ? "#101A14" : "transparent", color: on ? "#F1EBDD" : "#101A14", fontFamily: "inherit", fontSize: 14, cursor: "pointer" });
 const pickDark = (on) => ({ padding: "8px 12px", borderRadius: 10, border: `1.5px solid ${on ? "#E7B93B" : "rgba(241,235,221,.3)"}`, background: on ? "#E7B93B" : "transparent", color: on ? "#101A14" : "#F1EBDD", fontFamily: "inherit", fontSize: 14, cursor: "pointer" });
