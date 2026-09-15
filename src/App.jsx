@@ -2,9 +2,15 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, ECOREGION_IDS } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, ECOREGION_IDS } from "./lib/api.js";
 import { COUNTRIES, gardenRegions, gardenPlaceLabel } from "./data/tdwg.js";
 const COUNTRY_NAME = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
+// "Ask the gardener" prompts; mirrors question_prompt in the DB (seed-mode fallback).
+const DEFAULT_PROMPTS = [
+  { id: "how_long", text: "How long did it take to look like this?" }, { id: "prep", text: "How did you prep the site?" },
+  { id: "source", text: "Where did you get the plants?" }, { id: "upkeep", text: "How much watering and upkeep does it need?" },
+  { id: "wildlife", text: "What wildlife has shown up?" }, { id: "redo", text: "What would you do differently?" },
+];
 
 // Ecoregion id (stored on gardens/posts) -> display name, for keystone hints.
 const REGION_NAME = Object.fromEntries(Object.entries(ECOREGION_IDS).map(([n, i]) => [i, n]));
@@ -173,6 +179,14 @@ export default function App() {
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState(null);
   const [reportFor, setReportFor] = useState(null);
+  const [askFor, setAskFor] = useState(null);       // post open in the "Ask the gardener" sheet
+  const [qList, setQList] = useState([]);
+  const [prompts, setPrompts] = useState(DEFAULT_PROMPTS);
+  const [answerDraft, setAnswerDraft] = useState({});
+  const openAsk = (post) => {
+    setAskFor(post);
+    if (hasSupabase) fetchQuestions(post.id).then(setQList).catch((e) => console.error("questions", e)); else setQList([]);
+  };
   const [queue, setQueue] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [capExpanded, setCapExpanded] = useState({}); // post id -> caption expanded
@@ -191,6 +205,7 @@ export default function App() {
   useEffect(() => {
     if (!hasSupabase) return;
     fetchPosts().then(setPosts).catch((e) => console.error("feed", e));
+    fetchPrompts().then((p) => p.length && setPrompts(p)).catch((e) => console.error("prompts", e));
   }, []);
 
   useEffect(() => {
@@ -524,12 +539,11 @@ export default function App() {
                   {(p.region || p.country) && <>{" "}· {p.region || COUNTRY_NAME[p.country] || p.country}</>} · {p.ago}
                   {p.garden && <> · <em>{p.garden}</em></>}{p.zone && <> · zone {p.zone}</>}
                 </div>
-                {(p.project || p.stage) && (
-                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    {p.project && <button onClick={() => setFilter({ ...filter, project: p.project })} style={chip}>{proj(p.project).name}</button>}
-                    {p.stage && <button onClick={() => setFilter({ ...filter, stage: p.stage })} style={chip}>{stage(p.stage).name}</button>}
-                  </div>
-                )}
+                <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                  {p.project && <button onClick={() => setFilter({ ...filter, project: p.project })} style={chip}>{proj(p.project).name}</button>}
+                  {p.stage && <button onClick={() => setFilter({ ...filter, stage: p.stage })} style={chip}>{stage(p.stage).name}</button>}
+                  <button onClick={() => openAsk(p)} style={chip} title="Ask the gardener a question">Ask</button>
+                </div>
                 {p.caption && (() => {
                   const open = capExpanded[p.id];
                   const longCap = p.caption.length > 90;
@@ -1030,6 +1044,49 @@ export default function App() {
       )}
 
       {/* Report sheet */}
+      {/* Ask the gardener — structured prompts in, one answer from the author out. Flat, no threads. */}
+      {askFor && (() => {
+        const mine = !!user?.id && askFor.authorId === user.id;
+        const asked = new Set(qList.filter((q) => q.asker === user?.name).map((q) => q.prompt_id));
+        const promptText = (id) => prompts.find((x) => x.id === id)?.text ?? id;
+        const field = { ...input, marginTop: 0, background: "#fff", color: "#101A14", border: "1px solid rgba(16,26,20,.25)" };
+        return (
+          <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(16,26,20,.7)", display: "flex", alignItems: "flex-end" }} onClick={() => setAskFor(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxHeight: "82%", overflowY: "auto", background: "#F1EBDD", color: "#101A14", borderRadius: "18px 18px 0 0", padding: "22px 20px 30px" }}>
+              <div style={{ fontSize: 20, marginBottom: 4 }}>Ask the gardener</div>
+              <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 14 }}>{mine ? "Questions on your garden. Answer the ones you like." : `Pick a question for @${askFor.user} — they'll answer when they can.`}</div>
+              {qList.map((q) => (
+                <div key={q.id} style={{ padding: "10px 0", borderTop: "1px solid rgba(16,26,20,.12)" }}>
+                  <div style={{ fontSize: 14 }}><span style={{ opacity: 0.6 }}>@{q.asker} asked:</span> {promptText(q.prompt_id)}</div>
+                  {q.answer ? <div style={{ fontSize: 15, marginTop: 6, lineHeight: 1.4 }}>{q.answer}</div>
+                    : mine ? (
+                      <div style={{ marginTop: 6 }}>
+                        <textarea value={answerDraft[q.id] ?? ""} onChange={(e) => setAnswerDraft({ ...answerDraft, [q.id]: e.target.value })} rows={2} maxLength={600} placeholder="Your answer…" style={field} />
+                        <button style={{ ...btn(true), marginTop: 6 }} disabled={!(answerDraft[q.id] ?? "").trim()}
+                          onClick={async () => { try { await answerQuestion(q.id, answerDraft[q.id]); setQList(await fetchQuestions(askFor.id)); } catch (e) { setNotice(e.message ?? "Couldn't save your answer"); } }}>Answer</button>
+                      </div>
+                    ) : <div style={{ fontSize: 13, opacity: 0.55, marginTop: 4 }}>Waiting for an answer</div>}
+                </div>
+              ))}
+              {!mine && (
+                <div style={{ marginTop: qList.length ? 14 : 0 }}>
+                  {prompts.map((pr) => (
+                    <button key={pr.id} disabled={asked.has(pr.id)} style={{ ...pick(false), display: "block", width: "100%", textAlign: "left", marginBottom: 8, opacity: asked.has(pr.id) ? 0.45 : 1 }}
+                      onClick={() => requireAccount(async () => {
+                        try {
+                          if (!hasSupabase) { setNotice("Asking works on milkweed.garden — this is the offline demo."); return; }
+                          await askQuestion(askFor.id, pr.id, user.id);
+                          setQList(await fetchQuestions(askFor.id));
+                        } catch (e) { setNotice(e.message ?? "Couldn't send that question"); }
+                      })}>{pr.text}{asked.has(pr.id) ? " · asked" : ""}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {reportFor && (
         <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(16,26,20,.7)", display: "flex", alignItems: "flex-end" }} onClick={() => setReportFor(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", background: "#F1EBDD", color: "#101A14", borderRadius: "18px 18px 0 0", padding: "22px 20px 30px" }}>

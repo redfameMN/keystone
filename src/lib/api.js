@@ -308,6 +308,33 @@ export async function ensureGenus(genus, common) {
   if (error && error.code !== "23505") throw error;
 }
 
+// --- Ask the gardener (structured, flat Q&A) ---
+
+export async function fetchPrompts() {
+  const { data, error } = await supabase.from("question_prompt").select("id, text").order("sort");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchQuestions(postId) {
+  const { data, error } = await supabase.from("question")
+    .select("id, prompt_id, answer, answered_at, created_at, asker:profile!question_asker_id_fkey(username)")
+    .eq("post_id", postId).order("created_at");
+  if (error) throw error;
+  return (data ?? []).map((q) => ({ ...q, asker: q.asker?.username }));
+}
+
+export async function askQuestion(postId, promptId, uid) {
+  const { error } = await supabase.from("question").insert({ post_id: postId, asker_id: uid, prompt_id: promptId });
+  if (error) throw error;
+}
+
+export async function answerQuestion(id, text) {
+  const { data, error } = await supabase.from("question").update({ answer: text }).eq("id", id).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Only the gardener can answer this.");
+}
+
 export async function reportPost(postId, uid, reason, note) {
   const { error } = await supabase.from("report").insert({ post_id: postId, reporter_id: uid, reason, note: note || null });
   if (error) throw error;
