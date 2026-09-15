@@ -10,23 +10,32 @@ export const ECOREGIONS = [
   "North American Deserts",
 ];
 
+// Keystone status per ecoregion is taken directly from the NWF "Keystone Plants
+// by Ecoregion" guides (Tallamy Lepidoptera-host + Fowler specialist-bee data).
+// These ks arrays must stay in sync with supabase/migrations/0015_keystone_seed.sql
+// — the DB view (post_card.plants[].keystone) and this client list are the same
+// data, so the ★ hint says the same thing whether it's computed here or read back.
+const ETF = "Eastern Temperate Forests", GP = "Great Plains", NWFM = "Northwestern Forested Mountains",
+  MWCF = "Marine West Coast Forest", MEDCA = "Mediterranean California", NAD = "North American Deserts";
+const ALL6 = [ETF, GP, NWFM, MWCF, MEDCA, NAD];
+
 export const GENERA = [
-  { g: "Quercus", common: "Oaks", type: "tree", ks: ["Eastern Temperate Forests", "Great Plains", "Northwestern Forested Mountains", "Mediterranean California"] },
-  { g: "Prunus", common: "Cherries & plums", type: "tree", ks: ["Eastern Temperate Forests", "Great Plains", "Northwestern Forested Mountains"] },
-  { g: "Salix", common: "Willows", type: "tree", ks: ["Eastern Temperate Forests", "Great Plains", "Northwestern Forested Mountains", "Marine West Coast Forest", "North American Deserts"] },
-  { g: "Betula", common: "Birches", type: "tree", ks: ["Eastern Temperate Forests", "Northwestern Forested Mountains"] },
-  { g: "Populus", common: "Cottonwoods & aspens", type: "tree", ks: ["Eastern Temperate Forests", "Great Plains", "Northwestern Forested Mountains", "North American Deserts"] },
-  { g: "Acer", common: "Maples", type: "tree", ks: ["Eastern Temperate Forests", "Northwestern Forested Mountains"] },
-  { g: "Vaccinium", common: "Blueberries", type: "shrub", ks: ["Eastern Temperate Forests", "Marine West Coast Forest"] },
-  { g: "Solidago", common: "Goldenrods", type: "perennial", ks: ["Eastern Temperate Forests", "Great Plains", "Northwestern Forested Mountains"] },
-  { g: "Symphyotrichum", common: "Asters", type: "perennial", ks: ["Eastern Temperate Forests", "Great Plains"] },
-  { g: "Helianthus", common: "Sunflowers", type: "perennial", ks: ["Eastern Temperate Forests", "Great Plains", "North American Deserts"] },
-  { g: "Rudbeckia", common: "Coneflowers", type: "perennial", ks: ["Great Plains"] },
-  { g: "Eupatorium", common: "Bonesets", type: "perennial", ks: ["Eastern Temperate Forests"] },
-  { g: "Lupinus", common: "Lupines", type: "perennial", ks: ["Northwestern Forested Mountains", "Marine West Coast Forest", "Mediterranean California"] },
-  { g: "Ceanothus", common: "Wild lilacs", type: "shrub", ks: ["Mediterranean California", "Marine West Coast Forest"] },
-  { g: "Arctostaphylos", common: "Manzanitas", type: "shrub", ks: ["Mediterranean California"] },
-  // Non-keystone natives, still taggable
+  { g: "Quercus", common: "Oaks", type: "tree", ks: ALL6 },
+  { g: "Prunus", common: "Cherries & plums", type: "tree", ks: ALL6 },
+  { g: "Salix", common: "Willows", type: "tree", ks: ALL6 },
+  { g: "Betula", common: "Birches", type: "tree", ks: ALL6 },
+  { g: "Populus", common: "Cottonwoods & aspens", type: "tree", ks: [ETF, GP, NWFM, MWCF, NAD] },
+  { g: "Acer", common: "Maples", type: "tree", ks: ALL6 },
+  { g: "Vaccinium", common: "Blueberries", type: "shrub", ks: [ETF, GP, NWFM, MWCF, NAD] },
+  { g: "Solidago", common: "Goldenrods", type: "perennial", ks: ALL6 },
+  { g: "Symphyotrichum", common: "Asters", type: "perennial", ks: [ETF, GP, NWFM, MWCF] },
+  { g: "Helianthus", common: "Sunflowers", type: "perennial", ks: ALL6 },
+  { g: "Rudbeckia", common: "Coneflowers", type: "perennial", ks: [ETF, GP, MWCF] },
+  { g: "Ceanothus", common: "Wild lilacs", type: "shrub", ks: [MEDCA, NAD] },
+  // Native and taggable, but not on NWF's keystone (top-host) lists.
+  { g: "Eupatorium", common: "Bonesets", type: "perennial", ks: [] },
+  { g: "Lupinus", common: "Lupines", type: "perennial", ks: [] },
+  { g: "Arctostaphylos", common: "Manzanitas", type: "shrub", ks: [] },
   { g: "Asclepias", common: "Milkweeds", type: "perennial", ks: [] },
   { g: "Echinacea", common: "Purple coneflowers", type: "perennial", ks: [] },
   { g: "Monarda", common: "Bee balms", type: "perennial", ks: [] },
