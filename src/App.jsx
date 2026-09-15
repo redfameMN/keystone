@@ -949,16 +949,13 @@ export default function App() {
             const warns = draft.plants.map((g) => {
               const s = nativeStatus[g];
               if (!s) return null;
-              // Trust-safe: only assert "not native" for genera curated as non-native
-              // (native_us = false), where the range data is reliable. For broadly-
-              // native genera we stay silent rather than risk flagging a true native
-              // from incomplete species sampling. inState === true (e.g. English ivy
-              // in the UK) means native in this place → no warning.
-              if (s.nativeUs === false && s.inState !== true) {
-                const msg = s.inState === false
-                  ? `${g} isn't recorded as native in ${composerPlaceLabel || "your area"} — likely introduced or invasive.`
-                  : `${g} isn't native to North America — likely introduced or invasive.`;
-                return { g, bad: true, msg };
+              // Backed by complete genus-level WCVP data (every accepted species,
+              // all genera), so a genus absent from the place's native list can be
+              // trusted as non-native. inState === true (e.g. English ivy in the UK)
+              // means native here → no warning; null means we have no data → silent.
+              if (s.inState === false) {
+                const bad = s.nativeUs === false; // a known invasive → stronger styling
+                return { g, bad, msg: `${g} isn't recorded as native in ${composerPlaceLabel || "your area"}${bad ? " — likely introduced or invasive" : ""}.` };
               }
               return null;
             }).filter(Boolean);
