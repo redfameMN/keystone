@@ -229,6 +229,8 @@ export default function App() {
       try {
         const u = await ensureProfile(session);
         setUser(u);
+        // Admins: prefetch the moderation queue so the header can show "Queue · n" only when there's work.
+        if (u.isAdmin) Promise.all([fetchModerationQueue(), fetchIncidents()]).then(([q, inc]) => { setQueue(q); setIncidents(inc); }).catch((e) => console.error("queue", e));
         const a = await fetchMyActivity(u.id);
         setLiked(a.liked);
         setFollowing(a.following);
@@ -465,15 +467,14 @@ export default function App() {
   return (
     <div style={shell}>
       {/* Top bar */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "linear-gradient(rgba(16,26,20,.85), rgba(16,26,20,0))" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", padding: "14px 16px", background: "linear-gradient(rgba(16,26,20,.85), rgba(16,26,20,0))" }}>
         <Wordmark size={24} />
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {user?.isAdmin && (
-            <button onClick={async () => { setView("mod"); try { const [q, inc] = await Promise.all([fetchModerationQueue(), fetchIncidents()]); setQueue(q); setIncidents(inc); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {user?.isAdmin && (queue.length + incidents.length > 0 || view === "mod") && (
+            <button onClick={async () => { setView("mod"); try { const [q, inc] = await Promise.all([fetchModerationQueue(), fetchIncidents()]); setQueue(q); setIncidents(inc); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue · {queue.length + incidents.length}</button>
           )}
           <button onClick={() => { setSearchOpen(true); setSearchQ(""); setSearchHits([]); }} style={{ ...btn(false), display: "inline-flex", alignItems: "center", gap: 6 }} title="Search accounts, parks and places" aria-label="Search">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M20 20l-4.6-4.6" /></svg>
-            Search
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M20 20l-4.6-4.6" /></svg>
           </button>
           <button onClick={() => setView(view === "plants" ? "feed" : "plants")} style={btn(view === "plants")}>Plants</button>
           <button onClick={() => setView(view === "about" ? "feed" : "about")} style={btn(view === "about")} title="About & support">♡</button>
@@ -481,10 +482,10 @@ export default function App() {
             ? <button onClick={() => { if (hasSupabase && window.confirm("Sign out?")) signOut(); }} style={{ ...btn(false), border: "none", opacity: 0.8, fontSize: 13 }}>@{user.name}</button>
             : <button onClick={() => setAuthOpen(true)} style={btn(false)}>Sign in</button>}
         </div>
-      </div>
-
+      {/* Filter row lives inside the header's flow (full-width second row), so it always
+          sits below the nav however many lines the nav wraps to. */}
       {view === "feed" && (
-        <div style={{ position: "absolute", top: 56, left: 0, right: 0, zIndex: 5, padding: "0 16px", display: "flex", gap: 8, alignItems: "center", overflowX: "auto" }}>
+        <div style={{ flexBasis: "100%", display: "flex", gap: 8, alignItems: "center", overflowX: "auto", scrollbarWidth: "none" }}>
           <button onClick={() => setFiltersOpen(true)} style={btn(activeFilters > 0)}>{activeFilters ? `Filters · ${activeFilters}` : "Browse by journey"}</button>
           {filter.project && <button onClick={() => setFilter({ ...filter, project: null })} style={chip}>{proj(filter.project).name} ×</button>}
           {filter.stage && <button onClick={() => setFilter({ ...filter, stage: null })} style={chip}>{stage(filter.stage).name} ×</button>}
@@ -492,6 +493,7 @@ export default function App() {
           {filter.author && <button onClick={() => setFilter({ ...filter, author: null })} style={chip}>@{filter.author} ×</button>}
         </div>
       )}
+      </div>
 
       {filtersOpen && (
         <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(16,26,20,.7)", display: "flex", alignItems: "flex-end" }} onClick={() => setFiltersOpen(false)}>
