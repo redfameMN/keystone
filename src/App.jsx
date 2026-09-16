@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, searchPlaces, ECOREGION_IDS } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, searchPlaces, ensureSpecies, ECOREGION_IDS } from "./lib/api.js";
 import { COUNTRIES, gardenRegions, gardenPlaceLabel } from "./data/tdwg.js";
 const COUNTRY_NAME = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
 // "Ask the gardener" prompts; mirrors question_prompt in the DB (seed-mode fallback).
@@ -128,8 +128,9 @@ function PhotoStrip({ plants, srcs }) {
   );
 }
 
-function Tag({ g, region, onClick, active, compact }) {
+function Tag({ g, region, onClick, active, compact, common }) {
   const ks = isKeystone(tokenGenus(g), region);
+  const name = common ?? genus(tokenGenus(g))?.common; // favor the common name; scientific stays, smaller
   const dot = compact ? 6 : 8;
   return (
     <button onClick={onClick} style={{
@@ -139,8 +140,8 @@ function Tag({ g, region, onClick, active, compact }) {
       color: active ? "#101A14" : "#F1EBDD", fontSize: compact ? 12 : 13, cursor: "pointer", backdropFilter: "blur(6px)",
     }}>
       {ks && <span title="Keystone in this ecoregion" style={{ width: dot, height: dot, borderRadius: 999, background: active ? "#101A14" : "#E7B93B", flexShrink: 0 }} />}
-      <em style={{ fontStyle: "italic" }}>{g}</em>
-      <span style={{ opacity: 0.7, fontSize: compact ? 11 : undefined }}>{genus(g)?.common}</span>
+      {name ? <><span>{name}</span><em style={{ fontStyle: "italic", opacity: 0.65, fontSize: compact ? 11 : 12 }}>{g}</em></>
+            : <em style={{ fontStyle: "italic" }}>{g}</em>}
     </button>
   );
 }
@@ -405,6 +406,7 @@ export default function App() {
     // tag is a bare genus or a "Genus species" token.
     const gen = tokenGenus(g);
     if (hasSupabase && !genus(gen)) { try { await ensureGenus(gen, genus(gen)?.common ?? null); } catch (e) { console.error("genus", e); } }
+    if (hasSupabase && common) { try { await ensureSpecies(g, common); } catch (e) { console.error("species", e); } }
   };
   const removePlant = (g) => setDraft((d) => ({ ...d, plants: d.plants.filter((y) => y !== g) }));
 
@@ -580,8 +582,14 @@ export default function App() {
                     </div>
                   );
                 })()}
+                {p.credits?.length > 0 && (
+                  <div style={{ fontSize: 11, opacity: 0.7, margin: "0 0 6px", textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>
+                    Photo: {p.credits[0].credit}{p.credits[0].license && !p.credits[0].credit.includes(p.credits[0].license) ? ` · ${p.credits[0].license}` : ""}
+                    {p.credits[0].url && <> · <a href={p.credits[0].url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>source</a></>}
+                  </div>
+                )}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {p.plants.map((g) => <Tag key={g} g={g} region={p.region} onClick={() => setFilter({ ...filter, plant: g })} />)}
+                  {p.plants.map((g) => <Tag key={g} g={g} region={p.region} common={p.plantCommon?.[g]} onClick={() => setFilter({ ...filter, plant: g })} />)}
                 </div>
                 {p.plants.some((g) => isKeystone(tokenGenus(g), p.region)) && (
                   <div style={{ marginTop: 10, fontSize: 12, color: "#E7B93B" }}>● keystone genus for {p.region} — a top host plant for caterpillars, which feed most nesting birds</div>
@@ -990,7 +998,7 @@ export default function App() {
               {draft.plants.map((g) => (
                 <button key={g} onClick={() => removePlant(g)} title="Remove"
                   style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, border: "none", background: "#E7B93B", color: "#101A14", fontFamily: "inherit", fontSize: 12, cursor: "pointer" }}>
-                  <em>{g}</em>{plantLabel(g) && <span style={{ opacity: 0.75 }}>{plantLabel(g)}</span>}
+                  {plantLabel(g) ? <><span>{plantLabel(g)}</span><em style={{ opacity: 0.7 }}>{g}</em></> : <em>{g}</em>}
                   <span style={{ fontWeight: "bold" }}>×</span>
                 </button>
               ))}

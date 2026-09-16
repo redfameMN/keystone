@@ -36,6 +36,7 @@ const toUiPost = (row) => ({
   project: row.project_type_id,
   stage: row.stage_id,
   plants: (row.plants ?? []).map((p) => p.species || p.genus),
+  plantCommon: Object.fromEntries((row.plants ?? []).map((p) => [p.species || p.genus, p.common ?? null])), // token -> common name
   caption: row.caption ?? "",
   likes: row.like_count,
   ago: ago(row.created_at),
@@ -44,6 +45,7 @@ const toUiPost = (row) => ({
   zone: row.zone,
   country: row.country ?? null,
   tagged: row.tagged ?? [],
+  credits: (row.credits ?? []).filter((c) => c && c.credit), // attribution for licensed photos
   projectId: row.project_id,
   projectName: row.project_name,
   pinned: row.pinned ?? false,
@@ -351,6 +353,13 @@ export async function answerQuestion(id, text) {
   const { data, error } = await supabase.from("question").update({ answer: text }).eq("id", id).select("id");
   if (error) throw error;
   if (!data?.length) throw new Error("Only the gardener can answer this.");
+}
+
+// Remember a species' common name (from search/ID) so tags can show it. First write wins.
+export async function ensureSpecies(species, common) {
+  if (!species?.includes(" ") || !common) return;
+  const { error } = await supabase.from("species_name").upsert({ species, common: common.slice(0, 80) }, { onConflict: "species", ignoreDuplicates: true });
+  if (error && error.code !== "23505") throw error;
 }
 
 export async function reportPost(postId, uid, reason, note) {
