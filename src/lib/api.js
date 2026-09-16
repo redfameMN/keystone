@@ -134,6 +134,17 @@ export async function fetchProfile(username) {
   return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost), places, parents };
 }
 
+// Find any account by typing — matches username or display name (so "Woodbury"
+// or "Carver Lake" find the featured hubs, and "ryan" finds a person).
+export async function searchProfiles(term) {
+  const q = term?.trim().replace(/[%_,]/g, " ").trim();
+  if (!q || q.length < 2) return [];
+  const { data, error } = await supabase.from("profile").select("id, username, display_name")
+    .or(`username.ilike.%${q.replace(/\s+/g, "_")}%,display_name.ilike.%${q}%`).order("username").limit(10);
+  if (error) throw error;
+  return data ?? [];
+}
+
 // Featured place accounts (parks etc.) a post can tag.
 export async function searchPlaces(term) {
   const q = term?.trim().toLowerCase().replace(/[^a-z0-9_ ]/g, "").replace(/\s+/g, "_");

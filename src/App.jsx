@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, searchPlaces, ensureSpecies, ECOREGION_IDS } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, searchPlaces, ensureSpecies, searchProfiles, ECOREGION_IDS } from "./lib/api.js";
 import { COUNTRIES, gardenRegions, gardenPlaceLabel } from "./data/tdwg.js";
 const COUNTRY_NAME = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
 // "Ask the gardener" prompts; mirrors question_prompt in the DB (seed-mode fallback).
@@ -180,6 +180,20 @@ export default function App() {
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState(null);
   const [reportFor, setReportFor] = useState(null);
+  // Account search: type a name, open a profile.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchHits, setSearchHits] = useState([]);
+  const searchTimerRef = useRef(null);
+  const onSearch = (v) => {
+    setSearchQ(v);
+    clearTimeout(searchTimerRef.current);
+    if (v.trim().length < 2) { setSearchHits([]); return; }
+    if (!hasSupabase) { const q = v.trim().toLowerCase(); setSearchHits([...new Set(posts.map((p) => p.user))].filter((u) => u.includes(q)).map((u) => ({ id: u, username: u }))); return; }
+    searchTimerRef.current = setTimeout(async () => {
+      try { setSearchHits(await searchProfiles(v)); } catch (e) { console.error("search", e); }
+    }, 250);
+  };
   const [askFor, setAskFor] = useState(null);       // post open in the "Ask the gardener" sheet
   const [qList, setQList] = useState([]);
   const [prompts, setPrompts] = useState(DEFAULT_PROMPTS);
@@ -457,6 +471,7 @@ export default function App() {
           {user?.isAdmin && (
             <button onClick={async () => { setView("mod"); try { const [q, inc] = await Promise.all([fetchModerationQueue(), fetchIncidents()]); setQueue(q); setIncidents(inc); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
           )}
+          <button onClick={() => { setSearchOpen(true); setSearchQ(""); setSearchHits([]); }} style={btn(false)} title="Search accounts, parks and places" aria-label="Search">⌕</button>
           <button onClick={() => setView(view === "plants" ? "feed" : "plants")} style={btn(view === "plants")}>Plants</button>
           <button onClick={() => setView(view === "about" ? "feed" : "about")} style={btn(view === "about")} title="About & support">♡</button>
           {user
@@ -1117,6 +1132,29 @@ export default function App() {
       )}
 
       {/* Report sheet */}
+      {/* Account search sheet — usernames, display names, parks and places. */}
+      {searchOpen && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(16,26,20,.7)", display: "flex", alignItems: "flex-end" }} onClick={() => setSearchOpen(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxHeight: "82%", overflowY: "auto", background: "#F1EBDD", color: "#101A14", borderRadius: "18px 18px 0 0", padding: "22px 20px 30px" }}>
+            <div style={{ fontSize: 20, marginBottom: 10 }}>Search</div>
+            <input autoFocus value={searchQ} onChange={(e) => onSearch(e.target.value)} placeholder="Username, park, city, watershed…"
+              style={{ ...input, marginTop: 0, background: "#fff", color: "#101A14", border: "1px solid rgba(16,26,20,.25)" }} />
+            <div style={{ marginTop: 10 }}>
+              {searchHits.map((h) => (
+                <button key={h.id} onClick={() => { setSearchOpen(false); openProfile(h.username); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 4px", background: "none", border: "none", borderTop: "1px solid rgba(16,26,20,.12)", color: "#101A14", fontFamily: "inherit", fontSize: 15, cursor: "pointer" }}>
+                  @{h.username}
+                  {h.username.startsWith("pinnacle_") && <span style={{ marginLeft: 8, padding: "1px 8px", borderRadius: 999, background: "#101A14", color: "#F1EBDD", fontSize: 11 }}>★ featured</span>}
+                  {h.username.startsWith("demo_") && <span style={{ marginLeft: 8, padding: "1px 8px", borderRadius: 999, background: "#E7B93B", fontSize: 11 }}>demo</span>}
+                  {h.display_name && <div style={{ fontSize: 13, opacity: 0.65 }}>{h.display_name}</div>}
+                </button>
+              ))}
+              {searchQ.trim().length >= 2 && !searchHits.length && <div style={{ fontSize: 14, opacity: 0.6, padding: "10px 4px" }}>No accounts match.</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ask the gardener — structured prompts in, one answer from the author out. Flat, no threads. */}
       {askFor && (() => {
         const mine = !!user?.id && askFor.authorId === user.id;
