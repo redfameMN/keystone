@@ -96,17 +96,30 @@ export async function fetchMyActivity(uid) {
 
 export async function fetchProfile(username) {
   const [{ data: prof }, postsRes, taggedRes] = await Promise.all([
-    supabase.from("profile").select("id, username, display_name, created_at").eq("username", username).maybeSingle(),
+    supabase.from("profile").select("id, username, display_name, created_at, parent_id").eq("username", username).maybeSingle(),
     supabase.from("post_card").select().eq("username", username),
     // Posts by others that tagged this account as a place (parks etc.).
     supabase.from("post_card").select().contains("tagged", JSON.stringify([username])), // jsonb containment needs JSON, not an array literal
   ]);
   if (!prof) throw new Error("profile not found");
-  const { count } = await supabase.from("follow").select("follower_id", { count: "exact", head: true }).eq("followed_id", prof.id);
+  // Places nest (city → parks): list child places and roll up their posts; link a park up to its parent.
+  const [{ count }, { data: kids }, { data: parent }] = await Promise.all([
+    supabase.from("follow").select("follower_id", { count: "exact", head: true }).eq("followed_id", prof.id),
+    supabase.from("profile").select("id, username, display_name").eq("parent_id", prof.id).order("username"),
+    prof.parent_id ? supabase.from("profile").select("username").eq("id", prof.parent_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  const kidNames = (kids ?? []).map((k) => k.username);
+  const kidRows = kidNames.length
+    ? (await Promise.all([
+        supabase.from("post_card").select().in("username", kidNames),
+        ...kidNames.map((n) => supabase.from("post_card").select().contains("tagged", JSON.stringify([n]))),
+      ])).flatMap((r) => r.data ?? [])
+    : [];
   const seen = new Set();
-  const rows = [...(postsRes.data ?? []), ...(taggedRes.data ?? [])].filter((r) => !seen.has(r.id) && seen.add(r.id))
+  const rows = [...(postsRes.data ?? []), ...(taggedRes.data ?? []), ...kidRows].filter((r) => !seen.has(r.id) && seen.add(r.id))
     .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
-  return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost) };
+  const places = (kids ?? []).map((k) => ({ ...k, count: rows.filter((r) => r.username === k.username || (r.tagged ?? []).includes(k.username)).length }));
+  return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost), places, parent: parent?.username ?? null };
 }
 
 // Featured place accounts (parks etc.) a post can tag.

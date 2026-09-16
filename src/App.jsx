@@ -632,8 +632,25 @@ export default function App() {
               </div>
               {profile.display_name && <div style={{ fontSize: 14, opacity: 0.7 }}>{profile.display_name}</div>}
               <div style={{ fontSize: 13, opacity: 0.6 }}>{profile.posts.length} post{profile.posts.length === 1 ? "" : "s"} · {profile.followers} follower{profile.followers === 1 ? "" : "s"}</div>
+              {profile.parent && (
+                <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>Part of <button onClick={() => openProfile(profile.parent)} style={{ background: "none", border: "none", padding: 0, color: "#E7B93B", fontFamily: "inherit", fontSize: "inherit", cursor: "pointer" }}>@{profile.parent}</button></div>
+              )}
+              {profile.places?.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 6 }}>Parks &amp; places</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {profile.places.map((pl) => (
+                      <button key={pl.id} onClick={() => openProfile(pl.username)} style={chip}>📍 @{pl.username}{pl.count ? ` · ${pl.count}` : ""}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {profile.username.startsWith("pinnacle_") && (
-                <div style={{ fontSize: 13, color: "#E7B93B", marginTop: 6, lineHeight: 1.4 }}>Navigate the beauty of our parks digitally, then in person — visit, post, and tag <b>@{profile.username}</b> to add your photo here.</div>
+                <div style={{ fontSize: 13, color: "#E7B93B", marginTop: 8, lineHeight: 1.4 }}>
+                  {profile.places?.length
+                    ? <>Navigate the beauty of our parks digitally, then in person — pick a park above, visit, post, and tag it to add your photo.</>
+                    : <>Navigate the beauty of our parks digitally, then in person — visit, post, and tag <b>@{profile.username}</b> to add your photo here.</>}
+                </div>
               )}
             </div>
           </div>
