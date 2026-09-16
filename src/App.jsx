@@ -471,7 +471,10 @@ export default function App() {
           {user?.isAdmin && (
             <button onClick={async () => { setView("mod"); try { const [q, inc] = await Promise.all([fetchModerationQueue(), fetchIncidents()]); setQueue(q); setIncidents(inc); } catch (e) { console.error("queue", e); } }} style={btn(view === "mod")}>Queue</button>
           )}
-          <button onClick={() => { setSearchOpen(true); setSearchQ(""); setSearchHits([]); }} style={btn(false)} title="Search accounts, parks and places" aria-label="Search">⌕</button>
+          <button onClick={() => { setSearchOpen(true); setSearchQ(""); setSearchHits([]); }} style={{ ...btn(false), display: "inline-flex", alignItems: "center", gap: 6 }} title="Search accounts, parks and places" aria-label="Search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M20 20l-4.6-4.6" /></svg>
+            Search
+          </button>
           <button onClick={() => setView(view === "plants" ? "feed" : "plants")} style={btn(view === "plants")}>Plants</button>
           <button onClick={() => setView(view === "about" ? "feed" : "about")} style={btn(view === "about")} title="About & support">♡</button>
           {user
