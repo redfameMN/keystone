@@ -903,7 +903,9 @@ export default function App() {
                 {["approve", "remove"].map((action) => (
                   <button key={action} style={btn(action === "approve")} onClick={async () => {
                     try {
-                      await moderatePost(q.id, action);
+                      // A post can vanish under a stale queue (deleted elsewhere); moderatePost then
+                      // updates 0 rows. Either way, resync from the server rather than erroring.
+                      await moderatePost(q.id, action).catch((e) => { if (!/no rows updated/.test(e.message ?? "")) throw e; });
                       setQueue(await fetchModerationQueue());
                       setPosts(await fetchPosts());
                     } catch (e) {
