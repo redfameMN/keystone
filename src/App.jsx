@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { ECOREGIONS, GENERA, PALETTES, PROJECTS, STAGES, SEED_POSTS, genus, isKeystone, proj, stage } from "./data/taxonomy.js";
 import { identifyPhoto } from "./lib/identify.js";
 import { hasSupabase, supabase } from "./lib/supabase.js";
-import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, ECOREGION_IDS } from "./lib/api.js";
+import { fetchPosts, sendMagicLink, signOut, ensureProfile, fetchMyActivity, setLike, setFollow, publishPost, processPhoto, reportPost, fetchModerationQueue, moderatePost, fetchProfile, setPinned, fetchIncidents, markIncidentReported, searchPlants, ensureGenus, fetchMyGardens, createGarden, addProject, fetchNativeStatus, tokenGenus, fetchPrompts, fetchQuestions, askQuestion, answerQuestion, searchPlaces, ECOREGION_IDS } from "./lib/api.js";
 import { COUNTRIES, gardenRegions, gardenPlaceLabel } from "./data/tdwg.js";
 const COUNTRY_NAME = Object.fromEntries(COUNTRIES.map((c) => [c.code, c.name]));
 // "Ask the gardener" prompts; mirrors question_prompt in the DB (seed-mode fallback).
@@ -196,7 +196,7 @@ export default function App() {
   const [setupGarden, setSetupGarden] = useState(null); // {name, zone} on profile
   const [setupProjectFor, setSetupProjectFor] = useState(null); // gardenId adding a project on profile
   const [setupProject, setSetupProject] = useState({ type: "", name: "" });
-  const [draft, setDraft] = useState({ stage: null, plants: [], caption: "", srcs: [], gardenId: "", projectId: "" });
+  const [draft, setDraft] = useState({ stage: null, plants: [], caption: "", srcs: [], gardenId: "", projectId: "", places: [] });
   const [nativeStatus, setNativeStatus] = useState({}); // genus -> { nativeUs, inState }
   const refreshGardens = (uid) => fetchMyGardens(uid).then(setMyGardens).catch((e) => console.error("gardens", e));
   const fileRef = useRef();
@@ -334,7 +334,7 @@ export default function App() {
       try {
         const proj = selectedProject();
         const g = myGardens.find((x) => x.id === draft.gardenId);
-        const res = await publishPost({ user, files: fileObjs.current, ecoregionId: g?.ecoregion_id ?? null, projectId: proj?.id ?? null, projectTypeId: proj?.project_type_id ?? null, stage: draft.stage, plants: draft.plants, caption: draft.caption });
+        const res = await publishPost({ user, files: fileObjs.current, ecoregionId: g?.ecoregion_id ?? null, projectId: proj?.id ?? null, projectTypeId: proj?.project_type_id ?? null, stage: draft.stage, plants: draft.plants, caption: draft.caption, places: draft.places.map((x) => x.id) });
         setPosts(await fetchPosts());
         if (res.status === "rejected") setNotice("That photo can't be posted here — it didn't pass screening.");
         else if (res.status !== "live") setNotice("Your garden is in review — it'll appear in the feed once approved.");
@@ -352,7 +352,7 @@ export default function App() {
       setPosts((ps) => [{ id: Date.now(), user: user.name, region: REGION_NAME[g?.ecoregion_id] ?? "", project: proj?.project_type_id, stage: draft.stage, plants: draft.plants, caption: draft.caption, likes: 0, ago: "now", srcs: draft.srcs, garden: g?.name || null, zone: g?.zone || null, projectId: proj?.id, projectName: proj?.name }, ...ps]);
     }
     fileObjs.current = [];
-    setDraft({ stage: null, plants: [], caption: "", srcs: [], gardenId: draft.gardenId, projectId: "" });
+    setDraft({ stage: null, plants: [], caption: "", srcs: [], gardenId: draft.gardenId, projectId: "", places: [] });
     setView("feed");
   };
 
@@ -415,6 +415,23 @@ export default function App() {
     searchTimer.current = setTimeout(async () => {
       try { setPlantResults(await searchPlants(v)); } catch (e) { console.error("search", e); }
     }, 350);
+  };
+
+  // Place tags (featured park accounts): search-as-you-type, then chips on the draft.
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState([]);
+  const placeTimer = useRef(null);
+  const onPlaceSearch = (v) => {
+    setPlaceQuery(v);
+    clearTimeout(placeTimer.current);
+    if (!hasSupabase || v.trim().length < 2) { setPlaceResults([]); return; }
+    placeTimer.current = setTimeout(async () => {
+      try { setPlaceResults(await searchPlaces(v)); } catch (e) { console.error("places", e); }
+    }, 300);
+  };
+  const addPlace = (pl) => {
+    setDraft((d) => (d.places.some((x) => x.id === pl.id) ? d : { ...d, places: [...d.places, pl] }));
+    setPlaceQuery(""); setPlaceResults([]);
   };
 
   const acceptSuggestion = (s) => {
@@ -535,7 +552,7 @@ export default function App() {
                 <div style={{ fontSize: 14, opacity: 0.85, marginBottom: 4 }}>
                   <button onClick={() => openProfile(p.user)} style={{ background: "none", border: "none", padding: 0, color: "inherit", fontFamily: "inherit", fontSize: "inherit", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(241,235,221,.35)" }}>@{p.user}</button>
                   {p.user.startsWith("demo_") && <span title="Seed content posted by the Milkweed team, not a real gardener" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#E7B93B", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>demo</span>}
-                  {p.user.startsWith("pinnacle_") && <span title="Curated by the Milkweed team, celebrating a pioneer of this movement" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#F1EBDD", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>★ featured</span>}
+                  {p.user.startsWith("pinnacle_") && <span title="Curated by the Milkweed team — a showcase, not the subject's own account" style={{ margin: "0 2px 0 6px", padding: "1px 8px", borderRadius: 999, background: "#F1EBDD", color: "#101A14", fontSize: 11, verticalAlign: "1px" }}>★ featured</span>}
                   {(p.region || p.country) && <>{" "}· {p.region || COUNTRY_NAME[p.country] || p.country}</>} · {p.ago}
                   {p.garden && <> · <em>{p.garden}</em></>}{p.zone && <> · zone {p.zone}</>}
                 </div>
@@ -543,6 +560,7 @@ export default function App() {
                   {p.project && <button onClick={() => setFilter({ ...filter, project: p.project })} style={chip}>{proj(p.project).name}</button>}
                   {p.stage && <button onClick={() => setFilter({ ...filter, stage: p.stage })} style={chip}>{stage(p.stage).name}</button>}
                   <button onClick={() => openAsk(p)} style={chip} title="Ask the gardener a question">Ask</button>
+                  {(p.tagged ?? []).map((u) => <button key={u} onClick={() => openProfile(u)} style={chip} title="Tagged place">📍 @{u}</button>)}
                 </div>
                 {p.caption && (() => {
                   const open = capExpanded[p.id];
@@ -606,6 +624,9 @@ export default function App() {
               </div>
               {profile.display_name && <div style={{ fontSize: 14, opacity: 0.7 }}>{profile.display_name}</div>}
               <div style={{ fontSize: 13, opacity: 0.6 }}>{profile.posts.length} post{profile.posts.length === 1 ? "" : "s"} · {profile.followers} follower{profile.followers === 1 ? "" : "s"}</div>
+              {profile.username.startsWith("pinnacle_") && (
+                <div style={{ fontSize: 13, color: "#E7B93B", marginTop: 6, lineHeight: 1.4 }}>Navigate the beauty of our parks digitally, then in person — visit, post, and tag <b>@{profile.username}</b> to add your photo here.</div>
+              )}
             </div>
           </div>
           {user?.name !== profile.username && (
@@ -1024,6 +1045,31 @@ export default function App() {
               <Tag key={x.g} g={x.g} region={composerRegion} active={draft.plants.includes(x.g)} compact
                 onClick={() => (draft.plants.includes(x.g) ? removePlant(x.g) : addPlant(x.g, genus(x.g)?.common))} />
             ))}
+          </div>
+
+          <label style={lbl}>Tag a place (optional)</label>
+          {draft.places.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {draft.places.map((pl) => (
+                <button key={pl.id} onClick={() => setDraft({ ...draft, places: draft.places.filter((x) => x.id !== pl.id) })} title="Remove"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, border: "none", background: "#F1EBDD", color: "#101A14", fontFamily: "inherit", fontSize: 12, cursor: "pointer" }}>
+                  📍 @{pl.username}<span style={{ fontWeight: "bold" }}>×</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ position: "relative" }}>
+            <input value={placeQuery} onChange={(e) => onPlaceSearch(e.target.value)} placeholder="Posting from a park? Tag it — e.g. Ojibway" style={{ ...input, marginTop: 0 }} />
+            {placeResults.length > 0 && (
+              <div style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 4px)", zIndex: 8, background: "#1A2A20", border: "1px solid rgba(241,235,221,.25)", borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 20px rgba(0,0,0,.5)" }}>
+                {placeResults.map((pl) => (
+                  <button key={pl.id} onClick={() => addPlace(pl)}
+                    style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", background: "none", border: "none", borderBottom: "1px solid rgba(241,235,221,.1)", color: "#F1EBDD", fontFamily: "inherit", fontSize: 14, cursor: "pointer" }}>
+                    📍 @{pl.username}{pl.display_name && <span style={{ opacity: 0.6, fontSize: 12 }}> · {pl.display_name}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <label style={lbl}>Caption (optional)</label>

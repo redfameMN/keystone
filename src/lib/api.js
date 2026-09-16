@@ -43,6 +43,7 @@ const toUiPost = (row) => ({
   garden: row.garden_name,
   zone: row.zone,
   country: row.country ?? null,
+  tagged: row.tagged ?? [],
   projectId: row.project_id,
   projectName: row.project_name,
   pinned: row.pinned ?? false,
@@ -92,14 +93,27 @@ export async function fetchMyActivity(uid) {
 }
 
 export async function fetchProfile(username) {
-  const [{ data: prof }, postsRes] = await Promise.all([
+  const [{ data: prof }, postsRes, taggedRes] = await Promise.all([
     supabase.from("profile").select("id, username, display_name, created_at").eq("username", username).maybeSingle(),
-    supabase.from("post_card").select().eq("username", username)
-      .order("pinned", { ascending: false }).order("created_at", { ascending: false }),
+    supabase.from("post_card").select().eq("username", username),
+    // Posts by others that tagged this account as a place (parks etc.).
+    supabase.from("post_card").select().contains("tagged", JSON.stringify([username])), // jsonb containment needs JSON, not an array literal
   ]);
   if (!prof) throw new Error("profile not found");
   const { count } = await supabase.from("follow").select("follower_id", { count: "exact", head: true }).eq("followed_id", prof.id);
-  return { ...prof, followers: count ?? 0, posts: (postsRes.data ?? []).map(toUiPost) };
+  const seen = new Set();
+  const rows = [...(postsRes.data ?? []), ...(taggedRes.data ?? [])].filter((r) => !seen.has(r.id) && seen.add(r.id))
+    .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
+  return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost) };
+}
+
+// Featured place accounts (parks etc.) a post can tag.
+export async function searchPlaces(term) {
+  const q = term?.trim().toLowerCase().replace(/[^a-z0-9_ ]/g, "").replace(/\s+/g, "_");
+  const { data, error } = await supabase.from("profile").select("id, username, display_name")
+    .ilike("username", `pinnacle\\_%${q ?? ""}%`).order("username").limit(6);
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function setLike(postId, uid, on) {
@@ -214,7 +228,7 @@ export async function addProject(uid, gardenId, projectTypeId, name) {
   return data;
 }
 
-export async function publishPost({ user, files, ecoregionId, projectId, projectTypeId, stage, plants, caption }) {
+export async function publishPost({ user, files, ecoregionId, projectId, projectTypeId, stage, plants, caption, places = [] }) {
   // Milkweed is a photo feed — a post with no photo is not allowed.
   if (!files?.length) throw new Error("Add at least one photo of your garden.");
   const paths = [];
@@ -242,6 +256,10 @@ export async function publishPost({ user, files, ecoregionId, projectId, project
     plants.map((token) => ({ post_id: post.id, genus: tokenGenus(token), species: isSpeciesToken(token) ? token : "" }))
   );
   if (tagErr) throw tagErr;
+  if (places.length) {
+    const { error: e } = await supabase.from("post_tag").insert(places.map((tagged_id) => ({ post_id: post.id, tagged_id })));
+    if (e) throw e;
+  }
   // Posts start 'hidden'; the scan function is the only automated path to 'live'.
   // If the scan can't run, the post safely stays in review.
   const { data: scan, error: scanErr } = await supabase.functions.invoke("scan-post", { body: { post_id: post.id } });
