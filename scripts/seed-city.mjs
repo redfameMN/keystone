@@ -9,10 +9,8 @@ const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_R
 const HUBS = [
   { username: "pinnacle_woodbury", display: "Featured by Milkweed · City of Woodbury parks",
     members: ["pinnacle_ojibway", "pinnacle_carver_lake", "pinnacle_tamarack", "pinnacle_colby_lake"] },
-  // Political vs hydrological: Woodbury's parks split between SWWD and Ramsey-Washington
-  // Metro WD. Best-guess placement below — CONFIRM against the district boundary map.
-  { username: "pinnacle_swwd", display: "Featured by Milkweed · South Washington Watershed District",
-    members: ["pinnacle_carver_lake", "pinnacle_colby_lake", "pinnacle_ojibway"] },
+  // Watershed districts are NOT seeded here — they're derived from BWSR boundary data:
+  // python scripts/resolve-watersheds.py <dir> && node scripts/seed-watersheds.mjs <dir>/watersheds.json
 ];
 
 async function ensureUser(username) {
