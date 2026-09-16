@@ -102,18 +102,21 @@ export async function fetchProfile(username) {
     supabase.from("post_card").select().contains("tagged", JSON.stringify([username])), // jsonb containment needs JSON, not an array literal
   ]);
   if (!prof) throw new Error("profile not found");
-  // Places nest (city → parks): list child places and roll up their posts; link a park up to its parent.
-  const [{ count }, { data: kids }, { data: parent }] = await Promise.all([
+  // Places are many-to-many hubs (a park is in its city AND its watershed): list this
+  // hub's members with rolled-up posts, and the hubs this profile belongs to.
+  const [{ count }, { data: memRows }, { data: hubRows }] = await Promise.all([
     supabase.from("follow").select("follower_id", { count: "exact", head: true }).eq("followed_id", prof.id),
-    supabase.from("profile").select("id, username, display_name").eq("parent_id", prof.id).order("username"),
-    prof.parent_id ? supabase.from("profile").select("username").eq("id", prof.parent_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("place_member").select("member:profile!place_member_member_id_fkey(id, username, display_name)").eq("place_id", prof.id),
+    supabase.from("place_member").select("place:profile!place_member_place_id_fkey(username)").eq("member_id", prof.id),
   ]);
-  // Two levels deep (watershed → city → parks): grandchildren count toward their parent place.
-  const kidIds = (kids ?? []).map((k) => k.id);
-  const { data: gkids } = kidIds.length
-    ? await supabase.from("profile").select("id, username, parent_id").in("parent_id", kidIds)
+  const kids = (memRows ?? []).map((r) => r.member).filter(Boolean).sort((a, b) => a.username.localeCompare(b.username));
+  const parents = (hubRows ?? []).map((r) => r.place?.username).filter(Boolean).sort();
+  // Two levels deep (a hub of hubs): a member's own members count toward it.
+  const kidIds = kids.map((k) => k.id);
+  const { data: gRows } = kidIds.length
+    ? await supabase.from("place_member").select("place_id, member:profile!place_member_member_id_fkey(username)").in("place_id", kidIds)
     : { data: [] };
-  const under = (k) => [k.username, ...(gkids ?? []).filter((g) => g.parent_id === k.id).map((g) => g.username)];
+  const under = (k) => [k.username, ...(gRows ?? []).filter((g) => g.place_id === k.id).map((g) => g.member?.username).filter(Boolean)];
   const allNames = (kids ?? []).flatMap(under);
   const kidRows = allNames.length
     ? (await Promise.all([
@@ -128,7 +131,7 @@ export async function fetchProfile(username) {
     const names = under(k);
     return { ...k, count: rows.filter((r) => names.includes(r.username) || (r.tagged ?? []).some((t) => names.includes(t))).length };
   });
-  return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost), places, parent: parent?.username ?? null };
+  return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost), places, parents };
 }
 
 // Featured place accounts (parks etc.) a post can tag.

@@ -632,8 +632,10 @@ export default function App() {
               </div>
               {profile.display_name && <div style={{ fontSize: 14, opacity: 0.7 }}>{profile.display_name}</div>}
               <div style={{ fontSize: 13, opacity: 0.6 }}>{profile.posts.length} post{profile.posts.length === 1 ? "" : "s"} · {profile.followers} follower{profile.followers === 1 ? "" : "s"}</div>
-              {profile.parent && (
-                <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>Part of <button onClick={() => openProfile(profile.parent)} style={{ background: "none", border: "none", padding: 0, color: "#E7B93B", fontFamily: "inherit", fontSize: "inherit", cursor: "pointer" }}>@{profile.parent}</button></div>
+              {profile.parents?.length > 0 && (
+                <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>Part of {profile.parents.map((u, i) => (
+                  <span key={u}>{i > 0 && " · "}<button onClick={() => openProfile(u)} style={{ background: "none", border: "none", padding: 0, color: "#E7B93B", fontFamily: "inherit", fontSize: "inherit", cursor: "pointer" }}>@{u}</button></span>
+                ))}</div>
               )}
               {profile.places?.length > 0 && (
                 <div style={{ marginTop: 10 }}>
