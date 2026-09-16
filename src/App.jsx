@@ -527,7 +527,7 @@ export default function App() {
 
       {/* Feed */}
       {view === "feed" && (
-        <div style={{ height: "100%", overflowY: "auto", scrollSnapType: "y mandatory" }}>
+        <div style={{ height: "100%", overflowY: "auto", scrollSnapType: "y mandatory", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch" }}>
           {visible.length === 0 && (
             <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 32, textAlign: "center" }}>
               <div>No gardens match those filters yet. <button onClick={startPost} style={btn(true)}>Post the first one</button></div>
