@@ -108,17 +108,26 @@ export async function fetchProfile(username) {
     supabase.from("profile").select("id, username, display_name").eq("parent_id", prof.id).order("username"),
     prof.parent_id ? supabase.from("profile").select("username").eq("id", prof.parent_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
-  const kidNames = (kids ?? []).map((k) => k.username);
-  const kidRows = kidNames.length
+  // Two levels deep (watershed → city → parks): grandchildren count toward their parent place.
+  const kidIds = (kids ?? []).map((k) => k.id);
+  const { data: gkids } = kidIds.length
+    ? await supabase.from("profile").select("id, username, parent_id").in("parent_id", kidIds)
+    : { data: [] };
+  const under = (k) => [k.username, ...(gkids ?? []).filter((g) => g.parent_id === k.id).map((g) => g.username)];
+  const allNames = (kids ?? []).flatMap(under);
+  const kidRows = allNames.length
     ? (await Promise.all([
-        supabase.from("post_card").select().in("username", kidNames),
-        ...kidNames.map((n) => supabase.from("post_card").select().contains("tagged", JSON.stringify([n]))),
+        supabase.from("post_card").select().in("username", allNames),
+        ...allNames.map((n) => supabase.from("post_card").select().contains("tagged", JSON.stringify([n]))),
       ])).flatMap((r) => r.data ?? [])
     : [];
   const seen = new Set();
   const rows = [...(postsRes.data ?? []), ...(taggedRes.data ?? []), ...kidRows].filter((r) => !seen.has(r.id) && seen.add(r.id))
     .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
-  const places = (kids ?? []).map((k) => ({ ...k, count: rows.filter((r) => r.username === k.username || (r.tagged ?? []).includes(k.username)).length }));
+  const places = (kids ?? []).map((k) => {
+    const names = under(k);
+    return { ...k, count: rows.filter((r) => names.includes(r.username) || (r.tagged ?? []).some((t) => names.includes(t))).length };
+  });
   return { ...prof, followers: count ?? 0, posts: rows.map(toUiPost), places, parent: parent?.username ?? null };
 }
 

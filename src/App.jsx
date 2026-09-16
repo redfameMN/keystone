@@ -648,7 +648,7 @@ export default function App() {
               {profile.username.startsWith("pinnacle_") && (
                 <div style={{ fontSize: 13, color: "#E7B93B", marginTop: 8, lineHeight: 1.4 }}>
                   {profile.places?.length
-                    ? <>Navigate the beauty of our parks digitally, then in person — pick a park above, visit, post, and tag it to add your photo.</>
+                    ? <>Navigate the beauty of our parks digitally, then in person — pick a place above, visit, post, and tag the park to add your photo.</>
                     : <>Navigate the beauty of our parks digitally, then in person — visit, post, and tag <b>@{profile.username}</b> to add your photo here.</>}
                 </div>
               )}
